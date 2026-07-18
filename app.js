@@ -166,6 +166,19 @@ function setupEventListeners() {
   });
 }
 
+const DEFAULT_LOCAL_TIP = 2000;
+
+function setDefaultTipForOrderType(orderType) {
+  const addTip = document.getElementById("addTip");
+  const tipAmount = document.getElementById("tipAmount");
+  const tipField = document.getElementById("tipField");
+  const isLocal = orderType === "local";
+
+  addTip.checked = isLocal;
+  tipAmount.value = isLocal ? DEFAULT_LOCAL_TIP : "";
+  tipField.style.display = isLocal ? "block" : "none";
+}
+
 // ===================================
 // NAVEGACIÓN Y VISTAS
 // ===================================
@@ -405,9 +418,7 @@ function clearCart() {
     document.querySelector('input[name="orderType"][value="local"]').checked = true;
     document.getElementById("deliveryFields").style.display = "none";
     document.querySelector('input[name="paymentMethod"][value="Efectivo"]').checked = true;
-    document.getElementById("addTip").checked = false;
-    document.getElementById("tipAmount").value = "";
-    document.getElementById("tipField").style.display = "none";
+    setDefaultTipForOrderType("local");
 
     renderCart();
     showToast("Orden limpiada", "success");
@@ -530,9 +541,7 @@ async function processOrder() {
     document.getElementById("customerName").value = "";
     document.getElementById("deliveryAddress").value = "";
     document.getElementById("deliveryCharge").value = "";
-    document.getElementById("addTip").checked = false;
-    document.getElementById("tipAmount").value = "";
-    document.getElementById("tipField").style.display = "none";
+    setDefaultTipForOrderType(orderType);
     renderCart();
 
     showToast(`Orden #${result.orderNumber} procesada`, "success");
@@ -544,6 +553,8 @@ async function processOrder() {
 // ===================================
 // SISTEMA DE IMPRESIÓN - AJUSTADO PARA PAPEL 80MM
 // ===================================
+
+const RECEIPT_LINE_WIDTH = 32;
 
 async function printReceipts(orderNumber, orderData) {
   // Generar contenido de la factura
@@ -587,20 +598,28 @@ function generateReceiptContent(orderNumber, orderData) {
     hour12: true,
   });
 
-  // Función para centrar texto (48 caracteres para papel 80mm)
+  // Menos caracteres por línea permiten imprimir una letra más grande en 80 mm.
   const center = (text) => {
     const len = text.length;
-    const padding = Math.max(0, Math.floor((48 - len) / 2));
+    const padding = Math.max(
+      0,
+      Math.floor((RECEIPT_LINE_WIDTH - len) / 2)
+    );
     return " ".repeat(padding) + text;
+  };
+  const separator = "=".repeat(RECEIPT_LINE_WIDTH);
+  const alignValues = (left, right) => {
+    const spaces = Math.max(1, RECEIPT_LINE_WIDTH - left.length - right.length);
+    return `${left}${" ".repeat(spaces)}${right}`;
   };
 
   let content = `
 ${center("CHARLIE FAST FOOD")}
-${"=".repeat(48)}
+${separator}
 CLL 5A #1 C SUR - 48, Bellavista
 Tel: 324 2749206
 @charliefastfood
-${"=".repeat(48)}
+${separator}
 
 Factura: ${String(orderNumber).padStart(3, "0")}
 Fecha: ${formattedDate} ${formattedTime}
@@ -609,9 +628,9 @@ Tipo: ${orderType.toUpperCase()}
 ${address ? "Dirección: " + address : ""}
 Pago: ${paymentMethod}
 
-${"=".repeat(48)}
+${separator}
 PRODUCTOS
-${"=".repeat(48)}
+${separator}
 
 `;
 
@@ -619,9 +638,7 @@ ${"=".repeat(48)}
     content += `${item.name}\n`;
     const qtyPrice = `${item.quantity} x ${formatPrice(item.price)}`;
     const itemTotal = formatPrice(item.price * item.quantity);
-    content += `${qtyPrice}${" ".repeat(
-      48 - qtyPrice.length - itemTotal.length
-    )}${itemTotal}\n`;
+    content += `${alignValues(qtyPrice, itemTotal)}\n`;
     if (item.notes) {
       item.notes.split(",").forEach((note) => {
         content += `  * ${note.trim()}\n`;
@@ -630,24 +647,16 @@ ${"=".repeat(48)}
     content += `\n`;
   });
 
-  content += `${"=".repeat(48)}\n`;
-  content += `Subtotal:${" ".repeat(
-    38 - formatPrice(subtotal).length
-  )}${formatPrice(subtotal)}\n`;
+  content += `${separator}\n`;
+  content += `${alignValues("Subtotal:", formatPrice(subtotal))}\n`;
   if (deliveryCharge > 0) {
-    content += `Domicilio:${" ".repeat(
-      37 - formatPrice(deliveryCharge).length
-    )}${formatPrice(deliveryCharge)}\n`;
+    content += `${alignValues("Domicilio:", formatPrice(deliveryCharge))}\n`;
   }
   if (tip > 0) {
-    content += `Propina:${" ".repeat(
-      39 - formatPrice(tip).length
-    )}${formatPrice(tip)}\n`;
+    content += `${alignValues("Propina:", formatPrice(tip))}\n`;
   }
-  content += `TOTAL:${" ".repeat(41 - formatPrice(total).length)}${formatPrice(
-    total
-  )}\n`;
-  content += `${"=".repeat(48)}\n\n`;
+  content += `${alignValues("TOTAL:", formatPrice(total))}\n`;
+  content += `${separator}\n\n`;
   content += `${center("¡Gracias por su compra!")}\n`;
   content += `${center("Vuelve pronto")}\n\n\n`;
 
@@ -657,7 +666,7 @@ ${"=".repeat(48)}
 async function printToThermalPrinter(content, copy) {
   try {
     // Agregar encabezado de copia
-    const fullContent = `\n${copy}\n${"-".repeat(48)}\n${content}`;
+    const fullContent = `\n${copy}\n${"-".repeat(RECEIPT_LINE_WIDTH)}\n${content}`;
 
     // Abrir ventana de impresión
     const printWindow = window.open("", "_blank", "width=300,height=600");
@@ -679,23 +688,25 @@ async function printToThermalPrinter(content, copy) {
                         margin: 0;
                     }
                     
-                    body {
-                        font-family: 'Courier New', Courier, monospace;
-                        font-size: 12px;
-                        font-weight: 600;
-                        width: 100%;
-                        margin: 0;
-                        padding: 5px;
+                     body {
+                         font-family: 'Courier New', Courier, monospace;
+                         font-size: 11pt;
+                         font-weight: 700;
+                         width: 80mm;
+                         margin: 0;
+                         padding: 1.5mm;
                         background: white;
                         color: black;
                     }
                     
-                    pre {
-                        font-family: 'Courier New', Courier, monospace;
-                        font-size: 12px;
-                        white-space: pre;
-                        margin: 0;
-                        line-height: 1.2;
+                     pre {
+                         font-family: 'Courier New', Courier, monospace;
+                         font-size: 11pt;
+                         font-weight: 700;
+                         white-space: pre-wrap;
+                         overflow-wrap: anywhere;
+                         margin: 0;
+                         line-height: 1.25;
                     }
                 </style>
             </head>
@@ -1280,8 +1291,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       const deliveryFields = document.getElementById("deliveryFields");
       deliveryFields.style.display =
         e.target.value === "domicilio" ? "block" : "none";
+      setDefaultTipForOrderType(e.target.value);
     });
   });
+
+  const initialOrderType = document.querySelector(
+    'input[name="orderType"]:checked'
+  ).value;
+  setDefaultTipForOrderType(initialOrderType);
 
   // Vista por defecto
   switchView("orden");
