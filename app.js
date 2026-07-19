@@ -13,6 +13,7 @@ let state = {
   cart: [],
   currentView: "orden",
   selectedCategory: "all",
+  productSearch: "",
   tempProduct: null,
   isAdminLoggedIn: false,
   currentUser: null,
@@ -136,6 +137,11 @@ function setupEventListeners() {
     if (e.target.classList.contains("category-btn")) {
       filterByCategory(e.target.dataset.category);
     }
+  });
+
+  document.getElementById("productSearch").addEventListener("input", (e) => {
+    state.productSearch = e.target.value;
+    renderProducts();
   });
 
   // Listener para notas rápidas
@@ -295,10 +301,22 @@ async function loadProducts() {
 
 function renderProducts() {
   const grid = document.getElementById("productsGrid");
-  const filteredProducts =
-    state.selectedCategory === "all"
-      ? state.products
-      : state.products.filter((p) => p.category === state.selectedCategory);
+  const normalizeSearch = (text) =>
+    String(text || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  const searchTerm = normalizeSearch(state.productSearch);
+  const filteredProducts = state.products.filter((product) => {
+    const matchesCategory =
+      state.selectedCategory === "all" ||
+      product.category === state.selectedCategory;
+    const searchableText = normalizeSearch(
+      `${product.name} ${product.description || ""}`
+    );
+    return matchesCategory && searchableText.includes(searchTerm);
+  });
 
   if (filteredProducts.length === 0) {
     grid.innerHTML =
