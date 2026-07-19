@@ -554,7 +554,7 @@ async function processOrder() {
 // SISTEMA DE IMPRESIÓN - AJUSTADO PARA PAPEL 80MM
 // ===================================
 
-const RECEIPT_LINE_WIDTH = 32;
+const RECEIPT_LINE_WIDTH = 26;
 
 async function printReceipts(orderNumber, orderData) {
   // Generar contenido de la factura
@@ -690,7 +690,7 @@ async function printToThermalPrinter(content, copy) {
                     
                      body {
                          font-family: 'Courier New', Courier, monospace;
-                         font-size: 11pt;
+                         font-size: 13pt;
                          font-weight: 700;
                          width: 80mm;
                          margin: 0;
@@ -701,7 +701,7 @@ async function printToThermalPrinter(content, copy) {
                     
                      pre {
                          font-family: 'Courier New', Courier, monospace;
-                         font-size: 11pt;
+                         font-size: 13pt;
                          font-weight: 700;
                          white-space: pre-wrap;
                          overflow-wrap: anywhere;
