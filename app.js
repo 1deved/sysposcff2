@@ -509,8 +509,8 @@ async function processOrder() {
     tip = parseInt(document.getElementById("tipAmount").value) || 0;
   }
 
-  if (!customerName || state.cart.length === 0) {
-    showToast("Complete los datos", "error");
+  if (state.cart.length === 0) {
+    showToast("Agregue productos a la orden", "error");
     return;
   }
 
@@ -520,7 +520,7 @@ async function processOrder() {
   const total = subtotal + deliveryCharge + tip;
 
   const orderData = {
-    customerName,
+    customerName: customerName || "Consumidor final",
     orderType,
     address,
     deliveryCharge,
@@ -623,7 +623,7 @@ ${separator}
 
 Factura: ${String(orderNumber).padStart(3, "0")}
 Fecha: ${formattedDate} ${formattedTime}
-Cliente: ${customerName}
+Cliente: ${customerName || "Consumidor final"}
 Tipo: ${orderType.toUpperCase()}
 ${address ? "Dirección: " + address : ""}
 Pago: ${paymentMethod}
