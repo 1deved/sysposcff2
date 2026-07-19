@@ -772,6 +772,8 @@ function dashboardDateValue(date) {
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
 }
 
+let dashboardRequestId = 0;
+
 function setDashboardPeriod(period) {
   const now = new Date();
   const start = period === "month" ? new Date(now.getFullYear(), now.getMonth(), 1) : now;
@@ -788,23 +790,25 @@ async function loadDashboard() {
     startInput.value = today;
     endInput.value = today;
   }
+  const dateStart = startInput.value;
+  const dateEnd = endInput.value;
+  const requestId = ++dashboardRequestId;
   const result = await fetchData("getDashboardData", {
-    filters: { dateStart: startInput.value, dateEnd: endInput.value },
+    filters: { dateStart, dateEnd },
   });
+  if (requestId !== dashboardRequestId) return;
   if (!result || !result.success) {
     showToast("No se pudo cargar el dashboard", "error");
     return;
   }
-  renderDashboard(result.data || {});
+  renderDashboard(result.data || {}, dateStart, dateEnd);
 }
 
-function renderDashboard(data) {
+function renderDashboard(data, start, end) {
   document.getElementById("dashboardSales").textContent = formatPrice(data.sales || 0);
   document.getElementById("dashboardOrders").textContent = data.orderCount || 0;
   document.getElementById("dashboardAverage").textContent = formatPrice(Math.round(data.averageTicket || 0));
   document.getElementById("dashboardUnits").textContent = data.unitsSold || 0;
-  const start = document.getElementById("dashboardStartDate").value;
-  const end = document.getElementById("dashboardEndDate").value;
   document.getElementById("dashboardPeriodLabel").textContent = start === end ? `Datos del ${start}` : `${start} al ${end}`;
 
   const daily = data.dailySales || [];
