@@ -793,15 +793,20 @@ async function loadDashboard() {
   const dateStart = startInput.value;
   const dateEnd = endInput.value;
   const requestId = ++dashboardRequestId;
-  const result = await fetchData("getDashboardData", {
-    filters: { dateStart, dateEnd },
-  });
-  if (requestId !== dashboardRequestId) return;
-  if (!result || !result.success) {
-    showToast("No se pudo cargar el dashboard", "error");
-    return;
+  showLoader(true, "Cargando ventas...");
+  try {
+    const result = await fetchData("getDashboardData", {
+      filters: { dateStart, dateEnd },
+    });
+    if (requestId !== dashboardRequestId) return;
+    if (!result || !result.success) {
+      showToast("No se pudo cargar el dashboard", "error");
+      return;
+    }
+    renderDashboard(result.data || {}, dateStart, dateEnd);
+  } finally {
+    if (requestId === dashboardRequestId) showLoader(false);
   }
-  renderDashboard(result.data || {}, dateStart, dateEnd);
 }
 
 function renderDashboard(data, start, end) {
@@ -1093,9 +1098,10 @@ function formatPrice(price) {
   return "$" + price.toLocaleString("es-CO");
 }
 
-function showLoader(show) {
+function showLoader(show, message = "Procesando orden...") {
   const loader = document.getElementById("loader");
   if (show) {
+    document.getElementById("loaderMessage").textContent = message;
     loader.classList.add("active");
   } else {
     loader.classList.remove("active");
