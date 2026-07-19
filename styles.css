@@ -223,7 +223,7 @@ body {
 .product-search-wrapper {
     position: relative;
     width: 100%;
-    margin-bottom: 18px;
+    margin-bottom: 22px;
 }
 
 .product-search-icon {
@@ -242,8 +242,8 @@ body {
     appearance: none;
     -webkit-appearance: none;
     width: 100%;
-    min-height: 54px;
-    padding: 13px 48px 13px 52px;
+    min-height: 46px;
+    padding: 10px 48px 10px 52px;
     border: 2px solid var(--primary-orange);
     border-radius: 16px;
     background: rgba(0, 0, 0, 0.42);
