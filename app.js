@@ -123,6 +123,10 @@ function setupEventListeners() {
   document
     .getElementById("btnDeleteAllOrders")
     .addEventListener("click", deleteAllOrders);
+  document.getElementById("btnDashboardFilter").addEventListener("click", loadDashboard);
+  document.getElementById("btnDashboardToday").addEventListener("click", () => setDashboardPeriod("today"));
+  document.getElementById("btnDashboardMonth").addEventListener("click", () => setDashboardPeriod("month"));
+  document.querySelector('[data-tab="dashboard"]').addEventListener("click", loadDashboard);
 
   // Formularios
   document
@@ -762,6 +766,65 @@ async function printToThermalPrinter(content, copy) {
 // ===================================
 // ADMINISTRACIÓN - PRODUCTOS
 // ===================================
+
+function dashboardDateValue(date) {
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+
+function setDashboardPeriod(period) {
+  const now = new Date();
+  const start = period === "month" ? new Date(now.getFullYear(), now.getMonth(), 1) : now;
+  document.getElementById("dashboardStartDate").value = dashboardDateValue(start);
+  document.getElementById("dashboardEndDate").value = dashboardDateValue(now);
+  loadDashboard();
+}
+
+async function loadDashboard() {
+  const startInput = document.getElementById("dashboardStartDate");
+  const endInput = document.getElementById("dashboardEndDate");
+  if (!startInput.value || !endInput.value) {
+    const today = dashboardDateValue(new Date());
+    startInput.value = today;
+    endInput.value = today;
+  }
+  const result = await fetchData("getDashboardData", {
+    filters: { dateStart: startInput.value, dateEnd: endInput.value },
+  });
+  if (!result || !result.success) {
+    showToast("No se pudo cargar el dashboard", "error");
+    return;
+  }
+  renderDashboard(result.data || {});
+}
+
+function renderDashboard(data) {
+  document.getElementById("dashboardSales").textContent = formatPrice(data.sales || 0);
+  document.getElementById("dashboardOrders").textContent = data.orderCount || 0;
+  document.getElementById("dashboardAverage").textContent = formatPrice(Math.round(data.averageTicket || 0));
+  document.getElementById("dashboardUnits").textContent = data.unitsSold || 0;
+  const start = document.getElementById("dashboardStartDate").value;
+  const end = document.getElementById("dashboardEndDate").value;
+  document.getElementById("dashboardPeriodLabel").textContent = start === end ? `Datos del ${start}` : `${start} al ${end}`;
+
+  const daily = data.dailySales || [];
+  const maxDaily = Math.max(1, ...daily.map(item => Number(item.total) || 0));
+  document.getElementById("dashboardDaily").innerHTML = daily.length
+    ? daily.map(item => `<div class="dashboard-bar-row"><span>${item.date.slice(5)}</span><div><i style="width:${Math.max(4, (item.total / maxDaily) * 100)}%"></i></div><strong>${formatPrice(item.total)}</strong></div>`).join("")
+    : '<p class="dashboard-empty">No hay ventas en este período</p>';
+
+  const payments = data.payments || [];
+  document.getElementById("dashboardPayments").innerHTML = payments.length
+    ? payments.map(item => `<div><span>${item.name}</span><strong>${formatPrice(item.total)}</strong></div>`).join("")
+    : '<p class="dashboard-empty">Sin pagos registrados</p>';
+  const types = data.types || {};
+  document.getElementById("dashboardTypes").innerHTML = `<span>Local <strong>${types.local || 0}</strong></span><span>Domicilio <strong>${types.domicilio || 0}</strong></span>`;
+
+  const products = data.topProducts || [];
+  document.getElementById("dashboardProducts").innerHTML = products.length
+    ? products.map((item, index) => `<tr><td>${index + 1}</td><td><strong>${item.name}</strong></td><td>${item.quantity}</td><td>${formatPrice(item.revenue)}</td></tr>`).join("")
+    : '<tr><td colspan="4" style="text-align:center">No hay productos vendidos</td></tr>';
+}
 
 // --- LOGIN DE ADMINISTRACIÓN --- //
 
