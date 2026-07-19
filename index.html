@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Charlie Fast Food - POS</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260718-search-fix" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -44,14 +44,17 @@
             <section class="products-panel">
               <div class="panel-header">
                 <h2>Menú</h2>
-                <input
-                  type="search"
-                  id="productSearch"
-                  class="product-search"
-                  placeholder="Buscar productos..."
-                  aria-label="Buscar productos"
-                  autocomplete="off"
-                />
+                <div class="product-search-wrapper">
+                  <span class="product-search-icon" aria-hidden="true">⌕</span>
+                  <input
+                    type="search"
+                    id="productSearch"
+                    class="product-search"
+                    placeholder="Escribe el nombre del producto..."
+                    aria-label="Buscar productos"
+                    autocomplete="off"
+                  />
+                </div>
                 <div class="category-filter" id="categoryFilter">
                   <button class="category-btn active" data-category="all">
                     Todos
@@ -481,6 +484,6 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- La etiqueta SCRIPT debe ir JUSTO ANTES de cerrar el body -->
-    <script src="app.js"></script>
+    <script src="app.js?v=20260718-search-fix"></script>
   </body>
 </html>
