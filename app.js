@@ -653,7 +653,7 @@ ${separator}
     content += `${alignValues("Domicilio:", formatPrice(deliveryCharge))}\n`;
   }
   if (tip > 0) {
-    content += `${alignValues("Propina:", formatPrice(tip))}\n`;
+    content += `${alignValues("Propina voluntaria:", formatPrice(tip))}\n`;
   }
   content += `${alignValues("TOTAL:", formatPrice(total))}\n`;
   content += `${separator}\n\n`;
