@@ -75,6 +75,9 @@ function doGet(e) {
       case 'getOrders':
         response = { success: true, data: getOrders(data.filters) };
         break;
+      case 'getDashboardData':
+        response = { success: true, data: getDashboardData(data.filters) };
+        break;
       case 'updateOrder':
         response = updateOrder(data);
         break;
@@ -170,6 +173,9 @@ function doPost(e) {
 
       case 'getOrders':
         response = { success: true, data: getOrders() };
+        break;
+      case 'getDashboardData':
+        response = { success: true, data: getDashboardData(data.filters) };
         break;
         
       case 'deleteAllOrders':
@@ -666,4 +672,67 @@ function createConfigSheet() {
   sheet.clear();
   sheet.appendRow(['ADMIN_USER', 'admin']);
   sheet.appendRow(['ADMIN_PASSWORD', 'charlie2025']);
+}
+
+function getDashboardData(filters) {
+  filters = filters || {};
+  if (typeof filters === 'string') {
+    try { filters = JSON.parse(filters); } catch (e) { filters = {}; }
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ordersSheet = ss.getSheetByName('Órdenes');
+  const detailsSheet = ss.getSheetByName('Detalle_Órdenes');
+  const orders = ordersSheet && ordersSheet.getLastRow() > 1
+    ? ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 10).getValues()
+    : [];
+  const details = detailsSheet && detailsSheet.getLastRow() > 1
+    ? detailsSheet.getRange(2, 1, detailsSheet.getLastRow() - 1, 6).getValues()
+    : [];
+
+  const start = filters.dateStart ? new Date(filters.dateStart + 'T00:00:00') : null;
+  const end = filters.dateEnd ? new Date(filters.dateEnd + 'T23:59:59') : null;
+  const filtered = orders.filter(row => {
+    const date = new Date(row[1]);
+    return (!start || date >= start) && (!end || date <= end);
+  });
+  const orderIds = {};
+  const payments = {};
+  const types = { local: 0, domicilio: 0 };
+  const daily = {};
+  let sales = 0;
+
+  filtered.forEach(row => {
+    orderIds[String(row[0])] = true;
+    const total = Number(row[8]) || 0;
+    sales += total;
+    const payment = String(row[6] || 'Sin definir');
+    payments[payment] = (payments[payment] || 0) + total;
+    const type = String(row[3] || 'local').toLowerCase();
+    types[type] = (types[type] || 0) + 1;
+    const date = new Date(row[1]);
+    const key = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    daily[key] = (daily[key] || 0) + total;
+  });
+
+  const products = {};
+  details.forEach(row => {
+    if (!orderIds[String(row[0])]) return;
+    const name = String(row[1] || 'Producto');
+    if (!products[name]) products[name] = { name: name, quantity: 0, revenue: 0 };
+    products[name].quantity += Number(row[2]) || 0;
+    products[name].revenue += Number(row[4]) || 0;
+  });
+
+  return {
+    sales: sales,
+    orderCount: filtered.length,
+    averageTicket: filtered.length ? sales / filtered.length : 0,
+    unitsSold: Object.keys(products).reduce((sum, key) => sum + products[key].quantity, 0),
+    payments: Object.keys(payments).map(name => ({ name: name, total: payments[name] })),
+    types: types,
+    topProducts: Object.keys(products).map(key => products[key])
+      .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue),
+    dailySales: Object.keys(daily).sort().map(date => ({ date: date, total: daily[date] }))
+  };
 }
