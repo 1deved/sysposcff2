@@ -638,7 +638,6 @@ function generateReceiptContent(orderNumber, orderData) {
 ${center("CHARLIE FAST FOOD")}
 ${separator}
 CLL 5A #1 C SUR - 48, Bellavista
-Tel: 324 2749206
 @charliefastfood
 ${separator}
 
