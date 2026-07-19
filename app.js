@@ -535,7 +535,8 @@ async function processOrder() {
   showLoader(true);
 
   const subtotal = calculateTotal();
-  const total = subtotal + deliveryCharge + tip;
+  const total = subtotal + deliveryCharge;
+  const amountToPay = total + tip;
 
   const orderData = {
     customerName: customerName || "Consumidor final",
@@ -547,6 +548,7 @@ async function processOrder() {
     items: state.cart,
     subtotal,
     total,
+    amountToPay,
     date: new Date().toISOString(),
   };
 
@@ -602,6 +604,7 @@ function generateReceiptContent(orderNumber, orderData) {
     items,
     subtotal,
     total,
+    amountToPay,
     date,
   } = orderData;
   const now = new Date(date);
@@ -672,8 +675,14 @@ ${separator}
   }
   if (tip > 0) {
     content += `${alignValues("Propina voluntaria:", formatPrice(tip))}\n`;
+    content += `${alignValues("TOTAL VENTA:", formatPrice(total))}\n`;
+    content += `${alignValues(
+      "TOTAL A PAGAR:",
+      formatPrice(amountToPay || total + tip)
+    )}\n`;
+  } else {
+    content += `${alignValues("TOTAL:", formatPrice(total))}\n`;
   }
-  content += `${alignValues("TOTAL:", formatPrice(total))}\n`;
   content += `${separator}\n\n`;
   content += `${center("¡Gracias por su compra!")}\n`;
   content += `${center("Vuelve pronto")}\n\n\n`;
