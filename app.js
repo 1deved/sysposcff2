@@ -772,10 +772,14 @@ function dashboardDateValue(date) {
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
 }
 
+function currentOperationalDate() {
+  return new Date(Date.now() - 5 * 60 * 60 * 1000);
+}
+
 let dashboardRequestId = 0;
 
 function setDashboardPeriod(period) {
-  const now = new Date();
+  const now = currentOperationalDate();
   const start = period === "month" ? new Date(now.getFullYear(), now.getMonth(), 1) : now;
   document.getElementById("dashboardStartDate").value = dashboardDateValue(start);
   document.getElementById("dashboardEndDate").value = dashboardDateValue(now);
@@ -786,7 +790,7 @@ async function loadDashboard() {
   const startInput = document.getElementById("dashboardStartDate");
   const endInput = document.getElementById("dashboardEndDate");
   if (!startInput.value || !endInput.value) {
-    const today = dashboardDateValue(new Date());
+    const today = dashboardDateValue(currentOperationalDate());
     startInput.value = today;
     endInput.value = today;
   }
