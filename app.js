@@ -128,6 +128,7 @@ function setupEventListeners() {
   document.getElementById("btnDashboardMonth").addEventListener("click", () => setDashboardPeriod("month"));
   document.getElementById("btnCloseCashRegister").addEventListener("click", closeCashRegister);
   document.querySelector('[data-tab="dashboard"]').addEventListener("click", loadDashboard);
+  document.querySelector('[data-tab="ordenes"]').addEventListener("click", loadCashRegisterStatus);
 
   // Formularios
   document
@@ -796,14 +797,10 @@ async function loadDashboard() {
   const requestId = ++dashboardRequestId;
   showLoader(true, "Cargando ventas...");
   try {
-    const [result, cashResult] = await Promise.all([
-      fetchData("getDashboardData", {
-        filters: { dateStart, dateEnd },
-      }),
-      fetchData("getCashRegisterStatus"),
-    ]);
+    const result = await fetchData("getDashboardData", {
+      filters: { dateStart, dateEnd },
+    });
     if (requestId !== dashboardRequestId) return;
-    renderCashRegisterStatus(cashResult && cashResult.data ? cashResult.data : null);
     if (!result || !result.success) {
       showToast("No se pudo cargar el dashboard", "error");
       return;
@@ -812,6 +809,11 @@ async function loadDashboard() {
   } finally {
     if (requestId === dashboardRequestId) showLoader(false);
   }
+}
+
+async function loadCashRegisterStatus() {
+  const result = await fetchData("getCashRegisterStatus");
+  renderCashRegisterStatus(result && result.data ? result.data : null);
 }
 
 function formatBusinessDateLabel(date) {
@@ -874,7 +876,8 @@ async function closeCashRegister() {
     `Caja ${formatBusinessDateLabel(summary.businessDate)} cerrada: ${summary.orderCount} órdenes, ${formatPrice(summary.sales)}`,
     "success"
   );
-  await loadDashboard();
+  await loadCashRegisterStatus();
+  await loadOrdersAdmin();
 }
 
 function renderDashboard(data, start, end) {
