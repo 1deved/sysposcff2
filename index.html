@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Charlie Fast Food - POS</title>
-    <link rel="stylesheet" href="styles.css?v=20260719-dashboard" />
+    <link rel="stylesheet" href="styles.css?v=20260719-cash-register" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -250,6 +250,14 @@
               </div>
 
               <div class="tab-content" id="tabDashboard">
+                <section class="cash-register-card" id="cashRegisterCard">
+                  <div>
+                    <span class="cash-register-badge" id="cashRegisterBadge">Consultando caja...</span>
+                    <h3 id="cashRegisterTitle">Estado de caja</h3>
+                    <p id="cashRegisterDescription">Verificando el día operativo actual.</p>
+                  </div>
+                  <button class="btn-danger" id="btnCloseCashRegister" disabled>Cerrar caja</button>
+                </section>
                 <div class="dashboard-heading">
                   <div><h2>Resumen de ventas</h2><p id="dashboardPeriodLabel">Datos de hoy</p></div>
                   <div class="dashboard-filters">
@@ -509,6 +517,6 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- La etiqueta SCRIPT debe ir JUSTO ANTES de cerrar el body -->
-    <script src="app.js?v=20260719-dashboard-loading"></script>
+    <script src="app.js?v=20260719-cash-register"></script>
   </body>
 </html>

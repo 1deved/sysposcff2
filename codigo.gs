@@ -78,6 +78,12 @@ function doGet(e) {
       case 'getDashboardData':
         response = { success: true, data: getDashboardData(data.filters) };
         break;
+      case 'getCashRegisterStatus':
+        response = { success: true, data: getCashRegisterStatus() };
+        break;
+      case 'closeCashRegister':
+        response = closeCashRegister();
+        break;
       case 'updateOrder':
         response = updateOrder(data);
         break;
@@ -176,6 +182,12 @@ function doPost(e) {
         break;
       case 'getDashboardData':
         response = { success: true, data: getDashboardData(data.filters) };
+        break;
+      case 'getCashRegisterStatus':
+        response = { success: true, data: getCashRegisterStatus() };
+        break;
+      case 'closeCashRegister':
+        response = closeCashRegister();
         break;
         
       case 'deleteAllOrders':
@@ -426,9 +438,14 @@ function deleteProduct(data) {
 
 
 function createOrder(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
   const ordersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Órdenes');
   const detailsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Detalle_Órdenes');
+  ensureCashRegisterStructure();
   const orderNumber = ordersSheet.getLastRow();
+  const businessDate = getOrOpenBusinessDate();
 
   ordersSheet.appendRow([
     orderNumber,
@@ -440,7 +457,8 @@ function createOrder(data) {
     data.paymentMethod || 'Efectivo', // NUEVO
     data.subtotal || data.total,   // NUEVO
     data.total,
-    'Completada'
+    'Completada',
+    businessDate
   ]);
 
   data.items.forEach(item => {
@@ -455,6 +473,9 @@ function createOrder(data) {
   });
 
   return { success: true, orderNumber: orderNumber };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 
@@ -683,18 +704,19 @@ function getDashboardData(filters) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ordersSheet = ss.getSheetByName('Órdenes');
   const detailsSheet = ss.getSheetByName('Detalle_Órdenes');
+  ensureCashRegisterStructure();
   const orders = ordersSheet && ordersSheet.getLastRow() > 1
-    ? ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 10).getValues()
+    ? ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 11).getValues()
     : [];
   const details = detailsSheet && detailsSheet.getLastRow() > 1
     ? detailsSheet.getRange(2, 1, detailsSheet.getLastRow() - 1, 6).getValues()
     : [];
 
-  const start = filters.dateStart ? new Date(filters.dateStart + 'T00:00:00') : null;
-  const end = filters.dateEnd ? new Date(filters.dateEnd + 'T23:59:59') : null;
+  const start = filters.dateStart || null;
+  const end = filters.dateEnd || null;
   const filtered = orders.filter(row => {
-    const date = new Date(row[1]);
-    return (!start || date >= start) && (!end || date <= end);
+    const businessDate = getOrderBusinessDate(row);
+    return (!start || businessDate >= start) && (!end || businessDate <= end);
   });
   const orderIds = {};
   const payments = {};
@@ -710,8 +732,7 @@ function getDashboardData(filters) {
     payments[payment] = (payments[payment] || 0) + total;
     const type = String(row[3] || 'local').toLowerCase();
     types[type] = (types[type] || 0) + 1;
-    const date = new Date(row[1]);
-    const key = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const key = getOrderBusinessDate(row);
     daily[key] = (daily[key] || 0) + total;
   });
 
@@ -735,4 +756,138 @@ function getDashboardData(filters) {
       .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue),
     dailySales: Object.keys(daily).sort().map(date => ({ date: date, total: daily[date] }))
   };
+}
+
+// ===================================
+// CAJA Y DÍA OPERATIVO
+// ===================================
+
+const CASH_REGISTER_SHEET = 'Cierres_Caja';
+const ACTIVE_CASH_DATE_KEY = 'ACTIVE_CASH_DATE';
+const ACTIVE_CASH_OPENED_AT_KEY = 'ACTIVE_CASH_OPENED_AT';
+const LAST_CLOSED_CASH_DATE_KEY = 'LAST_CLOSED_CASH_DATE';
+const LEGACY_CUTOFF_HOUR = 4;
+
+function ensureCashRegisterStructure() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ordersSheet = ss.getSheetByName('Órdenes');
+  if (ordersSheet && ordersSheet.getRange(1, 11).getValue() !== 'Día Operativo') {
+    ordersSheet.getRange(1, 11).setValue('Día Operativo');
+  }
+
+  let closuresSheet = ss.getSheetByName(CASH_REGISTER_SHEET);
+  if (!closuresSheet) {
+    closuresSheet = ss.insertSheet(CASH_REGISTER_SHEET);
+    closuresSheet.appendRow([
+      'ID Cierre', 'Día Operativo', 'Apertura', 'Cierre',
+      'Órdenes', 'Ventas', 'Estado'
+    ]);
+  }
+}
+
+function formatBusinessDate(date) {
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function getSuggestedBusinessDate(now) {
+  const suggested = new Date(now);
+  if (Number(Utilities.formatDate(now, Session.getScriptTimeZone(), 'H')) < LEGACY_CUTOFF_HOUR) {
+    suggested.setDate(suggested.getDate() - 1);
+  }
+
+  const properties = PropertiesService.getScriptProperties();
+  const lastClosed = properties.getProperty(LAST_CLOSED_CASH_DATE_KEY);
+  let suggestedKey = formatBusinessDate(suggested);
+  if (lastClosed && suggestedKey <= lastClosed) {
+    const nextBusinessDay = new Date(lastClosed + 'T12:00:00');
+    nextBusinessDay.setDate(nextBusinessDay.getDate() + 1);
+    suggestedKey = formatBusinessDate(nextBusinessDay);
+  }
+  return suggestedKey;
+}
+
+function getOrOpenBusinessDate() {
+  ensureCashRegisterStructure();
+  const properties = PropertiesService.getScriptProperties();
+  let businessDate = properties.getProperty(ACTIVE_CASH_DATE_KEY);
+  if (!businessDate) {
+    const now = new Date();
+    businessDate = getSuggestedBusinessDate(now);
+    properties.setProperty(ACTIVE_CASH_DATE_KEY, businessDate);
+    properties.setProperty(ACTIVE_CASH_OPENED_AT_KEY, now.toISOString());
+  }
+  return businessDate;
+}
+
+function getOrderBusinessDate(row) {
+  if (row[10]) {
+    if (row[10] instanceof Date) return formatBusinessDate(row[10]);
+    return String(row[10]).slice(0, 10);
+  }
+
+  // Compatibilidad con órdenes creadas antes de incorporar el cierre de caja.
+  const legacyDate = new Date(row[1]);
+  legacyDate.setHours(legacyDate.getHours() - LEGACY_CUTOFF_HOUR);
+  return formatBusinessDate(legacyDate);
+}
+
+function getCashRegisterStatus() {
+  ensureCashRegisterStructure();
+  const properties = PropertiesService.getScriptProperties();
+  const businessDate = properties.getProperty(ACTIVE_CASH_DATE_KEY);
+  return {
+    isOpen: Boolean(businessDate),
+    businessDate: businessDate || null,
+    openedAt: properties.getProperty(ACTIVE_CASH_OPENED_AT_KEY) || null,
+    suggestedDate: getSuggestedBusinessDate(new Date())
+  };
+}
+
+function closeCashRegister() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    ensureCashRegisterStructure();
+    const properties = PropertiesService.getScriptProperties();
+    const businessDate = properties.getProperty(ACTIVE_CASH_DATE_KEY);
+    if (!businessDate) {
+      return { success: false, error: 'No hay una caja abierta para cerrar' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ordersSheet = ss.getSheetByName('Órdenes');
+    const rows = ordersSheet.getLastRow() > 1
+      ? ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 11).getValues()
+      : [];
+    const registerOrders = rows.filter(row => getOrderBusinessDate(row) === businessDate);
+    const sales = registerOrders.reduce((sum, row) => sum + (Number(row[8]) || 0), 0);
+    const openedAt = properties.getProperty(ACTIVE_CASH_OPENED_AT_KEY);
+    const closedAt = new Date();
+
+    ss.getSheetByName(CASH_REGISTER_SHEET).appendRow([
+      'CIERRE-' + closedAt.getTime(),
+      businessDate,
+      openedAt ? new Date(openedAt) : '',
+      closedAt,
+      registerOrders.length,
+      sales,
+      'Cerrada'
+    ]);
+
+    properties.setProperty(LAST_CLOSED_CASH_DATE_KEY, businessDate);
+    properties.deleteProperty(ACTIVE_CASH_DATE_KEY);
+    properties.deleteProperty(ACTIVE_CASH_OPENED_AT_KEY);
+
+    return {
+      success: true,
+      data: {
+        businessDate: businessDate,
+        orderCount: registerOrders.length,
+        sales: sales,
+        closedAt: closedAt.toISOString()
+      }
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }

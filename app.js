@@ -126,6 +126,7 @@ function setupEventListeners() {
   document.getElementById("btnDashboardFilter").addEventListener("click", loadDashboard);
   document.getElementById("btnDashboardToday").addEventListener("click", () => setDashboardPeriod("today"));
   document.getElementById("btnDashboardMonth").addEventListener("click", () => setDashboardPeriod("month"));
+  document.getElementById("btnCloseCashRegister").addEventListener("click", closeCashRegister);
   document.querySelector('[data-tab="dashboard"]').addEventListener("click", loadDashboard);
 
   // Formularios
@@ -795,10 +796,14 @@ async function loadDashboard() {
   const requestId = ++dashboardRequestId;
   showLoader(true, "Cargando ventas...");
   try {
-    const result = await fetchData("getDashboardData", {
-      filters: { dateStart, dateEnd },
-    });
+    const [result, cashResult] = await Promise.all([
+      fetchData("getDashboardData", {
+        filters: { dateStart, dateEnd },
+      }),
+      fetchData("getCashRegisterStatus"),
+    ]);
     if (requestId !== dashboardRequestId) return;
+    renderCashRegisterStatus(cashResult && cashResult.data ? cashResult.data : null);
     if (!result || !result.success) {
       showToast("No se pudo cargar el dashboard", "error");
       return;
@@ -807,6 +812,69 @@ async function loadDashboard() {
   } finally {
     if (requestId === dashboardRequestId) showLoader(false);
   }
+}
+
+function formatBusinessDateLabel(date) {
+  if (!date) return "";
+  const parts = String(date).split("-");
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : date;
+}
+
+function renderCashRegisterStatus(status) {
+  const badge = document.getElementById("cashRegisterBadge");
+  const title = document.getElementById("cashRegisterTitle");
+  const description = document.getElementById("cashRegisterDescription");
+  const button = document.getElementById("btnCloseCashRegister");
+
+  if (!status) {
+    badge.textContent = "Apps Script pendiente";
+    badge.className = "cash-register-badge warning";
+    title.textContent = "Actualiza la implementación de Apps Script";
+    description.textContent = "El dashboard seguirá funcionando, pero el cierre estará disponible después del despliegue.";
+    button.disabled = true;
+    return;
+  }
+
+  if (status.isOpen) {
+    const dateLabel = formatBusinessDateLabel(status.businessDate);
+    badge.textContent = "Caja abierta";
+    badge.className = "cash-register-badge open";
+    title.textContent = `Día operativo ${dateLabel}`;
+    description.textContent = "Las nuevas ventas seguirán contando en este día hasta cerrar la caja.";
+    button.disabled = false;
+  } else {
+    const dateLabel = formatBusinessDateLabel(status.suggestedDate);
+    badge.textContent = "Caja cerrada";
+    badge.className = "cash-register-badge closed";
+    title.textContent = "No hay una caja abierta";
+    description.textContent = `La próxima venta abrirá automáticamente el día operativo ${dateLabel}.`;
+    button.disabled = true;
+  }
+}
+
+async function closeCashRegister() {
+  const title = document.getElementById("cashRegisterTitle").textContent;
+  if (!confirm(`¿Cerrar ${title}? Después del cierre, las próximas ventas pertenecerán al nuevo día operativo.`)) return;
+
+  showLoader(true, "Cerrando caja...");
+  let result;
+  try {
+    result = await fetchData("closeCashRegister");
+  } finally {
+    showLoader(false);
+  }
+
+  if (!result || !result.success || !result.data) {
+    showToast((result && result.error) || "No se pudo cerrar la caja", "error");
+    return;
+  }
+
+  const summary = result.data;
+  showToast(
+    `Caja ${formatBusinessDateLabel(summary.businessDate)} cerrada: ${summary.orderCount} órdenes, ${formatPrice(summary.sales)}`,
+    "success"
+  );
+  await loadDashboard();
 }
 
 function renderDashboard(data, start, end) {
