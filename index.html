@@ -250,14 +250,6 @@
               </div>
 
               <div class="tab-content" id="tabDashboard">
-                <section class="cash-register-card" id="cashRegisterCard">
-                  <div>
-                    <span class="cash-register-badge" id="cashRegisterBadge">Consultando caja...</span>
-                    <h3 id="cashRegisterTitle">Estado de caja</h3>
-                    <p id="cashRegisterDescription">Verificando el día operativo actual.</p>
-                  </div>
-                  <button class="btn-danger" id="btnCloseCashRegister" disabled>Cerrar caja</button>
-                </section>
                 <div class="dashboard-heading">
                   <div><h2>Resumen de ventas</h2><p id="dashboardPeriodLabel">Datos de hoy</p></div>
                   <div class="dashboard-filters">
@@ -321,6 +313,14 @@
               </div>
               <!-- Tab de Órdenes - AGREGAR TODO ESTO -->
               <div class="tab-content" id="tabOrdenes">
+                <section class="cash-register-card" id="cashRegisterCard">
+                  <div>
+                    <span class="cash-register-badge" id="cashRegisterBadge">Consultando caja...</span>
+                    <h3 id="cashRegisterTitle">Estado de caja</h3>
+                    <p id="cashRegisterDescription">Verificando el día operativo actual.</p>
+                  </div>
+                  <button class="btn-danger" id="btnCloseCashRegister" disabled>Cerrar caja</button>
+                </section>
                 <div>
                   <div class="admin-header">
                     <h2>Gestión de Órdenes</h2>
@@ -517,6 +517,6 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- La etiqueta SCRIPT debe ir JUSTO ANTES de cerrar el body -->
-    <script src="app.js?v=20260719-cash-register-api-2"></script>
+    <script src="app.js?v=20260719-cash-register-orders-2"></script>
   </body>
 </html>
