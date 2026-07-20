@@ -725,14 +725,6 @@ body {
 }
 
 .dashboard-heading, .dashboard-panel-title { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:22px; }
-.cash-register-card { display:flex; justify-content:space-between; align-items:center; gap:24px; margin-bottom:24px; padding:20px 22px; border:1px solid #454545; border-left:5px solid var(--primary-yellow); border-radius:16px; background:#202020; }
-.cash-register-card h3 { margin-top:8px; font-size:22px; }
-.cash-register-card p { margin-top:5px; color:var(--gray-medium); }
-.cash-register-badge { display:inline-flex; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
-.cash-register-badge.open { color:#bbf7d0; background:rgba(34,197,94,.18); }
-.cash-register-badge.closed { color:var(--gray-medium); background:rgba(204,204,204,.12); }
-.cash-register-badge.warning { color:#fde68a; background:rgba(245,158,11,.18); }
-.cash-register-card .btn-danger:disabled { opacity:.45; cursor:not-allowed; }
 .dashboard-heading h2 { color:var(--primary-yellow); font-size:28px; }
 .dashboard-heading p, .dashboard-panel-title span { color:var(--gray-light); margin-top:5px; }
 .dashboard-filters { display:flex; gap:9px; flex-wrap:wrap; justify-content:flex-end; }
@@ -759,7 +751,7 @@ body {
 .dashboard-empty { color:var(--gray-light); text-align:center; padding:24px; }
 
 @media (max-width: 992px) { .dashboard-kpis { grid-template-columns:repeat(2,1fr); } .dashboard-grid { grid-template-columns:1fr; } .dashboard-heading { align-items:flex-start; flex-direction:column; } }
-@media (max-width: 600px) { .dashboard-kpis { grid-template-columns:1fr; } .dashboard-filters { justify-content:flex-start; } .dashboard-filters .input-field { width:100%; } .dashboard-bar-row { grid-template-columns:42px 1fr; } .dashboard-bar-row strong { grid-column:2; } .cash-register-card { align-items:flex-start; flex-direction:column; } .cash-register-card .btn-danger { width:100%; } }
+@media (max-width: 600px) { .dashboard-kpis { grid-template-columns:1fr; } .dashboard-filters { justify-content:flex-start; } .dashboard-filters .input-field { width:100%; } .dashboard-bar-row { grid-template-columns:42px 1fr; } .dashboard-bar-row strong { grid-column:2; } }
 
 .admin-table-container {
     overflow-x: auto;
