@@ -1173,16 +1173,8 @@ async function loadOrdersAdmin() {
     paymentMethod,
   };
 
-  // Si se seleccionó una fecha, crea un rango de inicio y fin para ese día.
   if (dateValue) {
-    // Corregir zona horaria: crear fecha local explícita
-    const [year, month, day] = dateValue.split("-").map(Number);
-    const dateStart = new Date(year, month - 1, day, 0, 0, 0, 0);
-    const dateEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
-
-    // Enviamos las fechas en formato ISO, que es estándar y fácil de parsear en el backend.
-    filters.dateStart = dateStart.toISOString();
-    filters.dateEnd = dateEnd.toISOString();
+    filters.operationalDate = dateValue;
   }
 
   showLoader(true);
@@ -1196,12 +1188,13 @@ async function loadOrdersAdmin() {
     // --- FILTRADO CLIENT-SIDE ---
     if (dateValue) {
       orders = orders.filter((order) => {
+        if (order.operationalDate) return order.operationalDate === dateValue;
         const orderDateStr = order.rawDate || order.date;
         if (!orderDateStr) return false;
-        const orderDate = new Date(orderDateStr);
-        const oYear = orderDate.getFullYear();
-        const oMonth = String(orderDate.getMonth() + 1).padStart(2, "0");
-        const oDay = String(orderDate.getDate()).padStart(2, "0");
+        const shiftedDate = new Date(new Date(orderDateStr).getTime() - 5 * 60 * 60 * 1000);
+        const oYear = shiftedDate.getFullYear();
+        const oMonth = String(shiftedDate.getMonth() + 1).padStart(2, "0");
+        const oDay = String(shiftedDate.getDate()).padStart(2, "0");
         return `${oYear}-${oMonth}-${oDay}` === dateValue;
       });
     }

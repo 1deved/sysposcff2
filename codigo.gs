@@ -543,6 +543,7 @@ function getOrders(filters) {
     // Preparar filtros
     const dateStart = filters.dateStart ? new Date(filters.dateStart) : null;
     const dateEnd = filters.dateEnd ? new Date(filters.dateEnd) : null;
+    const operationalDate = (filters.operationalDate || "").trim();
     const filterPayment = (filters.paymentMethod || "").trim();
 
     Logger.log("Aplicando filtros -> Fecha Inicio: %s, Fecha Fin: %s, Pago: %s", dateStart, dateEnd, filterPayment);
@@ -556,7 +557,9 @@ function getOrders(filters) {
       const paymentMethod = (row[6] || "").toString(); // Columna G: Pago
 
       let dateMatch = true;
-      if (dateStart && dateEnd) {
+      if (operationalDate) {
+        dateMatch = getOperationalDate(row) === operationalDate;
+      } else if (dateStart && dateEnd) {
         dateMatch = orderDate >= dateStart && orderDate <= dateEnd;
       }
 
@@ -578,6 +581,7 @@ function getOrders(filters) {
       address: item.data[4],
       paymentMethod: item.data[6],
       total: item.data[8],
+      operationalDate: getOperationalDate(item.data),
     }));
   } catch (err) {
     Logger.log("Error en getOrders: %s", err.toString());
