@@ -539,7 +539,8 @@ async function processOrder() {
   showLoader(true);
 
   const subtotal = calculateTotal();
-  const total = subtotal + deliveryCharge;
+  // El domicilio se cobra y se muestra por separado, pero no hace parte de la venta.
+  const total = subtotal;
   const payableTip = orderType === "local" ? tip : 0;
   const amountToPay = total + payableTip;
 
@@ -682,7 +683,7 @@ ${separator}
     content += `${alignValues("TOTAL VENTA:", formatPrice(total))}\n`;
     content += `${alignValues(
       "TOTAL A PAGAR:",
-      formatPrice(amountToPay || total + (orderType === "local" ? tip : 0))
+      formatPrice(amountToPay || subtotal + (orderType === "local" ? tip : 0))
     )}\n`;
   } else {
     content += `${alignValues("TOTAL:", formatPrice(total))}\n`;
