@@ -540,7 +540,8 @@ async function processOrder() {
 
   const subtotal = calculateTotal();
   const total = subtotal + deliveryCharge;
-  const amountToPay = total + tip;
+  const payableTip = orderType === "local" ? tip : 0;
+  const amountToPay = total + payableTip;
 
   const orderData = {
     customerName: customerName || "Consumidor final",
@@ -681,7 +682,7 @@ ${separator}
     content += `${alignValues("TOTAL VENTA:", formatPrice(total))}\n`;
     content += `${alignValues(
       "TOTAL A PAGAR:",
-      formatPrice(amountToPay || total + tip)
+      formatPrice(amountToPay || total + (orderType === "local" ? tip : 0))
     )}\n`;
   } else {
     content += `${alignValues("TOTAL:", formatPrice(total))}\n`;
