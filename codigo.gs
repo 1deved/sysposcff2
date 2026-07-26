@@ -580,7 +580,8 @@ function getOrders(filters) {
       type: item.data[3],
       address: item.data[4],
       paymentMethod: item.data[6],
-      total: item.data[8],
+      // La venta corresponde únicamente a los productos; el domicilio va aparte.
+      total: Number(item.data[7]) || Number(item.data[8]) || 0,
       operationalDate: getOperationalDate(item.data),
     }));
   } catch (err) {
@@ -714,7 +715,8 @@ function getDashboardData(filters) {
 
   filtered.forEach(row => {
     orderIds[String(row[0])] = true;
-    const total = Number(row[8]) || 0;
+    // Usar el subtotal de productos también corrige reportes de órdenes anteriores.
+    const total = Number(row[7]) || Number(row[8]) || 0;
     sales += total;
     const payment = String(row[6] || 'Sin definir');
     payments[payment] = (payments[payment] || 0) + total;
