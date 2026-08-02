@@ -24,6 +24,9 @@ function doGet(e) {
     let response;
 
     switch (action) {
+      case 'getInitialData':
+        response = { success: true, data: getInitialData() };
+        break;
       case 'getCategories':
         response = { success: true, data: getCategories() };
         break;
@@ -123,6 +126,14 @@ function doGet(e) {
   }
   Logger.log("doGet recibido. action=%s, params=%s", action, JSON.stringify(params));
 
+}
+
+function getInitialData() {
+  return {
+    categories: getCategories(),
+    products: getProducts(),
+    predefinedNotes: getPredefinedNotes()
+  };
 }
 
 // También mantener doPost por compatibilidad
