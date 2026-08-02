@@ -493,6 +493,7 @@ function validateLogin(data) {
 
 function getPredefinedNotes() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Notas_Predefinidas');
+  if (!sheet) return [];
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return [];
   return sheet.getRange(2, 1, lastRow - 1, 2).getValues().map(row => ({
