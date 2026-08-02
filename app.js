@@ -24,7 +24,6 @@ let state = {
 // ===================================
 
 document.addEventListener("DOMContentLoaded", () => {
-  initializeApp();
   setupEventListeners();
   // Buscar esta línea:
   document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -80,11 +79,13 @@ document.getElementById("btnOrden").addEventListener("click", () => {
 
 async function initializeApp() {
   showLoader(true);
-  await loadCategories();
-  await loadProducts();
-  renderProducts();
-  renderCategoryFilters();
-  showLoader(false);
+  try {
+    await loadInitialData();
+    renderProducts();
+    renderCategoryFilters();
+  } finally {
+    showLoader(false);
+  }
 }
 
 // ===================================
@@ -232,7 +233,7 @@ function switchTab(tab) {
 // ===================================
 
 function fetchData(action, data = {}) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       // Crear nombre único para el callback
       const callbackName =
@@ -255,23 +256,33 @@ function fetchData(action, data = {}) {
       // Crear script tag para JSONP
       const script = document.createElement("script");
       const url = `${SCRIPT_URL}?${params.toString()}`;
+      let settled = false;
+      const timeoutMs = action === "createOrder" ? 90000 : 45000;
+      const cleanup = () => {
+        if (script.parentNode) script.parentNode.removeChild(script);
+        delete window[callbackName];
+      };
+      const finish = (response) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        cleanup();
+        resolve(response);
+      };
+      const timeoutId = setTimeout(() => {
+        showToast("El servidor está tardando demasiado. Intente nuevamente.", "error");
+        finish({ success: false, error: "Tiempo de espera agotado" });
+      }, timeoutMs);
 
       // Definir callback global
       window[callbackName] = function (response) {
-        // Limpiar
-        delete window[callbackName];
-        document.body.removeChild(script);
-
-        // Resolver promesa
-        resolve(response);
+        finish(response);
       };
 
       // Manejar errores
       script.onerror = function () {
-        delete window[callbackName];
-        document.body.removeChild(script);
         showToast("Error de conexión con el servidor", "error");
-        reject(new Error("Error al cargar script"));
+        finish({ success: false, error: "Error al cargar el servidor" });
       };
 
       // Agregar script al DOM
@@ -280,7 +291,7 @@ function fetchData(action, data = {}) {
     } catch (error) {
       console.error("Error al comunicarse con Google Sheets:", error);
       showToast("Error de conexión con el servidor", "error");
-      reject(error);
+      resolve({ success: false, error: error.message });
     }
   });
 }
@@ -774,6 +785,28 @@ function dashboardDateValue(date) {
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
 }
 
+async function loadInitialData() {
+  const result = await fetchData("getInitialData");
+  if (result && result.success && result.data) {
+    state.categories = result.data.categories || [];
+    state.products = result.data.products || [];
+    state.predefinedNotes = result.data.predefinedNotes || [];
+    return;
+  }
+
+  // Compatibilidad temporal mientras se publica la nueva versión de Apps Script.
+  if (result && result.success && !result.data) {
+    const [categories, products, notes] = await Promise.all([
+      fetchData("getCategories"),
+      fetchData("getProducts"),
+      fetchData("getPredefinedNotes"),
+    ]);
+    if (categories.success) state.categories = categories.data || [];
+    if (products.success) state.products = products.data || [];
+    if (notes.success) state.predefinedNotes = notes.data || [];
+  }
+}
+
 function currentOperationalDate() {
   return new Date(Date.now() - 5 * 60 * 60 * 1000);
 }
@@ -845,12 +878,14 @@ function renderDashboard(data, start, end) {
 
 async function loadAdminData() {
   showLoader(true);
-  await loadProducts();
-  await loadCategories();
-  renderProductsTable();
-  renderCategoriesGrid();
-  updateCategorySelects();
-  showLoader(false);
+  try {
+    await loadInitialData();
+    renderProductsTable();
+    renderCategoriesGrid();
+    updateCategorySelects();
+  } finally {
+    showLoader(false);
+  }
 }
 
 function renderProductsTable() {
@@ -1381,7 +1416,6 @@ async function deleteAllOrders() {
 // Inicializar al cargar
 document.addEventListener("DOMContentLoaded", async () => {
   await initializeApp();
-  await loadPredefinedNotes();
 
   // Evento para tipo de orden
   document.querySelectorAll('input[name="orderType"]').forEach((radio) => {
@@ -1423,12 +1457,6 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
       .getElementById("tab" + tabId.charAt(0).toUpperCase() + tabId.slice(1))
       .classList.add("active");
   });
-});
-
-window.addEventListener("load", () => {
-  if (typeof loadOrdersAdmin === "function") {
-    loadOrdersAdmin();
-  }
 });
 
 // ===================================
