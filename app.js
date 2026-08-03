@@ -198,7 +198,7 @@ function switchTab(tab) {
 // COMUNICACIÓN CON GOOGLE SHEETS
 // ===================================
 
-function fetchData(action, data = {}) {
+function fetchDataOnce(action, data = {}, showErrors = true) {
   return new Promise((resolve) => {
     try {
       // Crear nombre único para el callback
@@ -236,7 +236,9 @@ function fetchData(action, data = {}) {
         resolve(response);
       };
       const timeoutId = setTimeout(() => {
-        showToast("El servidor está tardando demasiado. Intente nuevamente.", "error");
+        if (showErrors) {
+          showToast("El servidor está tardando demasiado. Intente nuevamente.", "error");
+        }
         finish({ success: false, error: "Tiempo de espera agotado" });
       }, timeoutMs);
 
@@ -247,7 +249,9 @@ function fetchData(action, data = {}) {
 
       // Manejar errores
       script.onerror = function () {
-        showToast("Error de conexión con el servidor", "error");
+        if (showErrors) {
+          showToast("Error de conexión con el servidor", "error");
+        }
         finish({ success: false, error: "Error al cargar el servidor" });
       };
 
@@ -256,10 +260,32 @@ function fetchData(action, data = {}) {
       document.body.appendChild(script);
     } catch (error) {
       console.error("Error al comunicarse con Google Sheets:", error);
-      showToast("Error de conexión con el servidor", "error");
+      if (showErrors) {
+        showToast("Error de conexión con el servidor", "error");
+      }
       resolve({ success: false, error: error.message });
     }
   });
+}
+
+const RETRYABLE_READ_ACTIONS = new Set([
+  "getInitialData",
+  "getCategories",
+  "getProducts",
+  "getPredefinedNotes",
+  "getOrders",
+  "getDashboardData",
+]);
+
+async function fetchData(action, data = {}) {
+  const canRetry = RETRYABLE_READ_ACTIONS.has(action);
+  const firstResult = await fetchDataOnce(action, data, !canRetry);
+  if (!canRetry || (firstResult && firstResult.success)) {
+    return firstResult;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  return fetchDataOnce(action, data, true);
 }
 
 async function loadCategories() {
