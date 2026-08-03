@@ -190,6 +190,10 @@ function switchTab(tab) {
     .classList.add("active");
 
   if (tab === "ordenes" && state.isAdminLoggedIn) {
+    const filterDate = document.getElementById("filterDate");
+    if (!filterDate.value) {
+      filterDate.value = dashboardDateValue(currentOperationalDate());
+    }
     loadOrdersAdmin();
   }
 }
