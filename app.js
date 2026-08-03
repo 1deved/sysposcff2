@@ -51,33 +51,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// --- EVENTOS PARA MOSTRAR VISTA ORDEN Y ADMIN --- //
-document.getElementById("btnAdmin").addEventListener("click", () => {
-  document.getElementById("vistaOrden").classList.add("hidden");
-  document.getElementById("vistaAdmin").classList.remove("hidden");
-
-  document.getElementById("btnAdmin").classList.add("active");
-  document.getElementById("btnOrden").classList.remove("active");
-
-  // Verificar si ya está logueado
-  if (state.isAdminLoggedIn) {
-    document.getElementById("loginScreen").style.display = "none";
-    document.getElementById("adminContent").style.display = "block";
-    loadAdminData();
-  } else {
-    document.getElementById("loginScreen").style.display = "block";
-    document.getElementById("adminContent").style.display = "none";
-  }
-});
-
-document.getElementById("btnOrden").addEventListener("click", () => {
-  document.getElementById("vistaAdmin").classList.add("hidden");
-  document.getElementById("vistaOrden").classList.remove("hidden");
-
-  document.getElementById("btnOrden").classList.add("active");
-  document.getElementById("btnAdmin").classList.remove("active");
-});
-
 async function initializeApp() {
   const hasCachedData = loadInitialDataCache();
   if (hasCachedData) {
@@ -209,12 +182,20 @@ function switchView(view) {
   if (view === "orden") {
     document.getElementById("btnOrden").classList.add("active");
     document.getElementById("vistaOrden").classList.add("active");
+    document.getElementById("vistaOrden").classList.remove("hidden");
     document.getElementById("vistaAdmin").classList.remove("active");
+    document.getElementById("vistaAdmin").classList.add("hidden");
   } else {
     document.getElementById("btnAdmin").classList.add("active");
     document.getElementById("vistaAdmin").classList.add("active");
+    document.getElementById("vistaAdmin").classList.remove("hidden");
     document.getElementById("vistaOrden").classList.remove("active");
-    loadAdminData();
+    document.getElementById("vistaOrden").classList.add("hidden");
+
+    const isLoggedIn = state.isAdminLoggedIn;
+    document.getElementById("loginScreen").style.display = isLoggedIn ? "none" : "block";
+    document.getElementById("adminContent").style.display = isLoggedIn ? "block" : "none";
+    if (isLoggedIn) loadAdminData();
   }
 
   state.currentView = view;
@@ -1472,11 +1453,9 @@ async function deleteAllOrders() {
 }
 
 // Inicializar al cargar
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   // Mostrar la orden de inmediato; el catálogo guardado se refresca en segundo plano.
   switchView("orden");
-  await initializeApp();
-
   // Evento para tipo de orden
   document.querySelectorAll('input[name="orderType"]').forEach((radio) => {
     radio.addEventListener("change", (e) => {
@@ -1495,6 +1474,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Listeners para el login
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("btnLogout").addEventListener("click", logout);
+
+  // Actualizar el catálogo sin bloquear los controles principales.
+  initializeApp().catch((error) =>
+    console.error("No se pudo actualizar el catálogo:", error)
+  );
 });
 
 // --- FUNCIONAMIENTO DE LAS PESTAÑAS (TABS) DEL ADMIN --- //
