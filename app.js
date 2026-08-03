@@ -5,7 +5,6 @@
 // URL del Web App de Google Apps Script (REEMPLAZAR CON LA URL REAL)
 const SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbwEQ8WxnePFNnHir_5BcPdzJ2GTvecAFtzKxSRH0J4y93M-mtFlxaOB6pcn5e4DrrNS/exec";
-const INITIAL_DATA_CACHE_KEY = "sysposcff2-initial-data-v1";
 
 // Estado de la aplicación
 let state = {
@@ -79,12 +78,7 @@ document.getElementById("btnOrden").addEventListener("click", () => {
 });
 
 async function initializeApp() {
-  const hasCachedData = loadInitialDataCache();
-  if (hasCachedData) {
-    renderProducts();
-    renderCategoryFilters();
-  }
-  showLoader(!hasCachedData);
+  showLoader(true);
   try {
     await loadInitialData();
     renderProducts();
@@ -264,27 +258,22 @@ function fetchDataOnce(action, data = {}, silent = false) {
       const url = `${SCRIPT_URL}?${params.toString()}`;
       let settled = false;
       const timeoutMs = action === "createOrder" ? 90000 : 45000;
-      const cleanup = (keepLateCallback = false) => {
+      const cleanup = () => {
         if (script.parentNode) script.parentNode.removeChild(script);
-        if (keepLateCallback) {
-          window[callbackName] = function () {};
-          setTimeout(() => delete window[callbackName], 120000);
-        } else {
-          delete window[callbackName];
-        }
+        delete window[callbackName];
       };
-      const finish = (response, keepLateCallback = false) => {
+      const finish = (response) => {
         if (settled) return;
         settled = true;
         clearTimeout(timeoutId);
-        cleanup(keepLateCallback);
+        cleanup();
         resolve(response);
       };
       const timeoutId = setTimeout(() => {
         if (!silent) {
           showToast("El servidor está tardando demasiado. Intente nuevamente.", "error");
         }
-        finish({ success: false, error: "Tiempo de espera agotado" }, true);
+        finish({ success: false, error: "Tiempo de espera agotado" });
       }, timeoutMs);
 
       // Definir callback global
@@ -821,7 +810,6 @@ async function loadInitialData() {
     state.categories = result.data.categories || [];
     state.products = result.data.products || [];
     state.predefinedNotes = result.data.predefinedNotes || [];
-    saveInitialDataCache(result.data);
     return;
   }
 
@@ -835,33 +823,6 @@ async function loadInitialData() {
     if (categories.success) state.categories = categories.data || [];
     if (products.success) state.products = products.data || [];
     if (notes.success) state.predefinedNotes = notes.data || [];
-    saveInitialDataCache({
-      categories: state.categories,
-      products: state.products,
-      predefinedNotes: state.predefinedNotes || [],
-    });
-  }
-}
-
-function loadInitialDataCache() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(INITIAL_DATA_CACHE_KEY));
-    if (!cached || !Array.isArray(cached.products) || !cached.products.length) return false;
-    state.categories = cached.categories || [];
-    state.products = cached.products;
-    state.predefinedNotes = cached.predefinedNotes || [];
-    return true;
-  } catch (error) {
-    localStorage.removeItem(INITIAL_DATA_CACHE_KEY);
-    return false;
-  }
-}
-
-function saveInitialDataCache(data) {
-  try {
-    localStorage.setItem(INITIAL_DATA_CACHE_KEY, JSON.stringify(data));
-  } catch (error) {
-    console.warn("No se pudo guardar el catálogo local", error);
   }
 }
 
