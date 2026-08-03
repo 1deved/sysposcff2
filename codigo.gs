@@ -440,12 +440,11 @@ function createOrder(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ordersSheet = ss.getSheetByName('Órdenes');
-  const detailsSheet = ss.getSheetByName('Detalle_Órdenes');
+  const ordersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Órdenes');
+  const detailsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Detalle_Órdenes');
   const orderNumber = ordersSheet.getLastRow();
 
-  ordersSheet.getRange(ordersSheet.getLastRow() + 1, 1, 1, 10).setValues([[
+  ordersSheet.appendRow([
     orderNumber,
     new Date(),
     data.customerName,
@@ -456,21 +455,18 @@ function createOrder(data) {
     data.subtotal || data.total,   // NUEVO
     data.total,
     'Completada'
-  ]]);
+  ]);
 
-  const detailRows = data.items.map(item => [
+  data.items.forEach(item => {
+    detailsSheet.appendRow([
       orderNumber,
       item.name,
       item.quantity,
       item.price,
       item.price * item.quantity,
       item.notes || ''
-  ]);
-  if (detailRows.length) {
-    detailsSheet
-      .getRange(detailsSheet.getLastRow() + 1, 1, detailRows.length, 6)
-      .setValues(detailRows);
-  }
+    ]);
+  });
 
   return { success: true, orderNumber: orderNumber };
   } finally {

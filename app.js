@@ -4,10 +4,7 @@
 
 // URL del Web App de Google Apps Script (REEMPLAZAR CON LA URL REAL)
 const SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbwEQ8WxnePFNnHir_5BcPdzJ2GTvecAFtzKxSRH0J4y93M-mtFlxaOB6pcn5e4DrrNS/exec";
-const INITIAL_DATA_CACHE_KEY = "sysposcff2-initial-data-v1";
-const INITIAL_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
-const DASHBOARD_CACHE_KEY = "sysposcff2-dashboard-v1";
+  "https://script.google.com/macros/s/AKfycbw6XmKLLK9fifEyNwaKYuGVTbvWdXBcb3kMIaTeZlFmYcSGDrAIQkDK4yX-MfO9EylY/exec";
 
 // Estado de la aplicación
 let state = {
@@ -53,15 +50,35 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-async function initializeApp() {
-  const cache = loadInitialDataCache();
-  if (cache.found) {
-    renderProducts();
-    renderCategoryFilters();
-  }
-  if (cache.fresh) return;
+// --- EVENTOS PARA MOSTRAR VISTA ORDEN Y ADMIN --- //
+document.getElementById("btnAdmin").addEventListener("click", () => {
+  document.getElementById("vistaOrden").classList.add("hidden");
+  document.getElementById("vistaAdmin").classList.remove("hidden");
 
-  showLoader(!cache.found);
+  document.getElementById("btnAdmin").classList.add("active");
+  document.getElementById("btnOrden").classList.remove("active");
+
+  // Verificar si ya está logueado
+  if (state.isAdminLoggedIn) {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("adminContent").style.display = "block";
+    loadAdminData();
+  } else {
+    document.getElementById("loginScreen").style.display = "block";
+    document.getElementById("adminContent").style.display = "none";
+  }
+});
+
+document.getElementById("btnOrden").addEventListener("click", () => {
+  document.getElementById("vistaAdmin").classList.add("hidden");
+  document.getElementById("vistaOrden").classList.remove("hidden");
+
+  document.getElementById("btnOrden").classList.add("active");
+  document.getElementById("btnAdmin").classList.remove("active");
+});
+
+async function initializeApp() {
+  showLoader(true);
   try {
     await loadInitialData();
     renderProducts();
@@ -186,20 +203,12 @@ function switchView(view) {
   if (view === "orden") {
     document.getElementById("btnOrden").classList.add("active");
     document.getElementById("vistaOrden").classList.add("active");
-    document.getElementById("vistaOrden").classList.remove("hidden");
     document.getElementById("vistaAdmin").classList.remove("active");
-    document.getElementById("vistaAdmin").classList.add("hidden");
   } else {
     document.getElementById("btnAdmin").classList.add("active");
     document.getElementById("vistaAdmin").classList.add("active");
-    document.getElementById("vistaAdmin").classList.remove("hidden");
     document.getElementById("vistaOrden").classList.remove("active");
-    document.getElementById("vistaOrden").classList.add("hidden");
-
-    const isLoggedIn = state.isAdminLoggedIn;
-    document.getElementById("loginScreen").style.display = isLoggedIn ? "none" : "block";
-    document.getElementById("adminContent").style.display = isLoggedIn ? "block" : "none";
-    if (isLoggedIn) loadAdminData();
+    loadAdminData();
   }
 
   state.currentView = view;
@@ -223,7 +232,7 @@ function switchTab(tab) {
 // COMUNICACIÓN CON GOOGLE SHEETS
 // ===================================
 
-function fetchDataOnce(action, data = {}, silent = false) {
+function fetchData(action, data = {}) {
   return new Promise((resolve) => {
     try {
       // Crear nombre único para el callback
@@ -249,27 +258,20 @@ function fetchDataOnce(action, data = {}, silent = false) {
       const url = `${SCRIPT_URL}?${params.toString()}`;
       let settled = false;
       const timeoutMs = action === "createOrder" ? 90000 : 45000;
-      const cleanup = (keepLateCallback = false) => {
+      const cleanup = () => {
         if (script.parentNode) script.parentNode.removeChild(script);
-        if (keepLateCallback) {
-          window[callbackName] = function () {};
-          setTimeout(() => delete window[callbackName], 120000);
-        } else {
-          delete window[callbackName];
-        }
+        delete window[callbackName];
       };
-      const finish = (response, keepLateCallback = false) => {
+      const finish = (response) => {
         if (settled) return;
         settled = true;
         clearTimeout(timeoutId);
-        cleanup(keepLateCallback);
+        cleanup();
         resolve(response);
       };
       const timeoutId = setTimeout(() => {
-        if (!silent) {
-          showToast("El servidor está tardando demasiado. Intente nuevamente.", "error");
-        }
-        finish({ success: false, error: "Tiempo de espera agotado" }, true);
+        showToast("El servidor está tardando demasiado. Intente nuevamente.", "error");
+        finish({ success: false, error: "Tiempo de espera agotado" });
       }, timeoutMs);
 
       // Definir callback global
@@ -279,7 +281,7 @@ function fetchDataOnce(action, data = {}, silent = false) {
 
       // Manejar errores
       script.onerror = function () {
-        if (!silent) showToast("Error de conexión con el servidor", "error");
+        showToast("Error de conexión con el servidor", "error");
         finish({ success: false, error: "Error al cargar el servidor" });
       };
 
@@ -288,7 +290,7 @@ function fetchDataOnce(action, data = {}, silent = false) {
       document.body.appendChild(script);
     } catch (error) {
       console.error("Error al comunicarse con Google Sheets:", error);
-      if (!silent) showToast("Error de conexión con el servidor", "error");
+      showToast("Error de conexión con el servidor", "error");
       resolve({ success: false, error: error.message });
     }
   });
@@ -783,30 +785,12 @@ function dashboardDateValue(date) {
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
 }
 
-async function fetchData(action, data = {}) {
-  const safeReadActions = new Set([
-    "getInitialData",
-    "getCategories",
-    "getProducts",
-    "getPredefinedNotes",
-    "getOrders",
-    "getDashboardData",
-  ]);
-  const canRetry = safeReadActions.has(action);
-  const firstResult = await fetchDataOnce(action, data, canRetry);
-  if (firstResult.success || !canRetry) return firstResult;
-
-  await new Promise((resolve) => setTimeout(resolve, 750));
-  return fetchDataOnce(action, data);
-}
-
 async function loadInitialData() {
   const result = await fetchData("getInitialData");
   if (result && result.success && result.data) {
     state.categories = result.data.categories || [];
     state.products = result.data.products || [];
     state.predefinedNotes = result.data.predefinedNotes || [];
-    saveInitialDataCache(result.data);
     return;
   }
 
@@ -820,43 +804,6 @@ async function loadInitialData() {
     if (categories.success) state.categories = categories.data || [];
     if (products.success) state.products = products.data || [];
     if (notes.success) state.predefinedNotes = notes.data || [];
-    saveInitialDataCache({
-      categories: state.categories,
-      products: state.products,
-      predefinedNotes: state.predefinedNotes || [],
-    });
-  }
-}
-
-function loadInitialDataCache() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(INITIAL_DATA_CACHE_KEY));
-    if (!cached || !Array.isArray(cached.products) || !cached.products.length) {
-      return { found: false, fresh: false };
-    }
-    state.categories = cached.categories || [];
-    state.products = cached.products;
-    state.predefinedNotes = cached.predefinedNotes || [];
-    return {
-      found: true,
-      fresh:
-        Number(cached.cachedAt) > 0 &&
-        Date.now() - Number(cached.cachedAt) < INITIAL_DATA_CACHE_TTL_MS,
-    };
-  } catch (error) {
-    localStorage.removeItem(INITIAL_DATA_CACHE_KEY);
-    return { found: false, fresh: false };
-  }
-}
-
-function saveInitialDataCache(data) {
-  try {
-    localStorage.setItem(
-      INITIAL_DATA_CACHE_KEY,
-      JSON.stringify({ ...data, cachedAt: Date.now() })
-    );
-  } catch (error) {
-    console.warn("No se pudo guardar el catálogo local", error);
   }
 }
 
@@ -885,18 +832,7 @@ async function loadDashboard() {
   const dateStart = startInput.value;
   const dateEnd = endInput.value;
   const requestId = ++dashboardRequestId;
-  let hasCachedDashboard = false;
-  try {
-    const cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY));
-    if (cached && cached.dateStart === dateStart && cached.dateEnd === dateEnd && cached.data) {
-      renderDashboard(cached.data, dateStart, dateEnd);
-      hasCachedDashboard = true;
-    }
-  } catch (error) {
-    localStorage.removeItem(DASHBOARD_CACHE_KEY);
-  }
-
-  showLoader(!hasCachedDashboard, "Cargando ventas...");
+  showLoader(true, "Cargando ventas...");
   try {
     const result = await fetchData("getDashboardData", {
       filters: { dateStart, dateEnd },
@@ -906,12 +842,7 @@ async function loadDashboard() {
       showToast("No se pudo cargar el dashboard", "error");
       return;
     }
-    const dashboardData = result.data || {};
-    renderDashboard(dashboardData, dateStart, dateEnd);
-    localStorage.setItem(
-      DASHBOARD_CACHE_KEY,
-      JSON.stringify({ dateStart, dateEnd, data: dashboardData, cachedAt: Date.now() })
-    );
+    renderDashboard(result.data || {}, dateStart, dateEnd);
   } finally {
     if (requestId === dashboardRequestId) showLoader(false);
   }
@@ -946,15 +877,7 @@ function renderDashboard(data, start, end) {
 // --- LOGIN DE ADMINISTRACIÓN --- //
 
 async function loadAdminData() {
-  const cache = loadInitialDataCache();
-  if (cache.found) {
-    renderProductsTable();
-    renderCategoriesGrid();
-    updateCategorySelects();
-  }
-  if (cache.fresh) return;
-
-  showLoader(!cache.found);
+  showLoader(true);
   try {
     await loadInitialData();
     renderProductsTable();
@@ -1491,9 +1414,9 @@ async function deleteAllOrders() {
 }
 
 // Inicializar al cargar
-document.addEventListener("DOMContentLoaded", () => {
-  // Mostrar la orden de inmediato; el catálogo guardado se refresca en segundo plano.
-  switchView("orden");
+document.addEventListener("DOMContentLoaded", async () => {
+  await initializeApp();
+
   // Evento para tipo de orden
   document.querySelectorAll('input[name="orderType"]').forEach((radio) => {
     radio.addEventListener("change", (e) => {
@@ -1509,14 +1432,12 @@ document.addEventListener("DOMContentLoaded", () => {
   ).value;
   setDefaultTipForOrderType(initialOrderType);
 
+  // Vista por defecto
+  switchView("orden");
+
   // Listeners para el login
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("btnLogout").addEventListener("click", logout);
-
-  // Actualizar el catálogo sin bloquear los controles principales.
-  initializeApp().catch((error) =>
-    console.error("No se pudo actualizar el catálogo:", error)
-  );
 });
 
 // --- FUNCIONAMIENTO DE LAS PESTAÑAS (TABS) DEL ADMIN --- //
