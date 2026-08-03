@@ -17,6 +17,7 @@ let state = {
   tempProduct: null,
   isAdminLoggedIn: false,
   currentUser: null,
+  isProcessingOrder: false,
 };
 
 // ===================================
@@ -25,56 +26,6 @@ let state = {
 
 document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
-  // Buscar esta línea:
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => switchTab(e.target.dataset.tab));
-  });
-
-  // Y ASEGURARSE que switchTab esté así:
-  function switchTab(tab) {
-    document.querySelectorAll(".tab-btn").forEach((btn) => {
-      btn.classList.remove("active");
-    });
-    document.querySelectorAll(".tab-content").forEach((content) => {
-      content.classList.remove("active");
-    });
-
-    document.querySelector(`[data-tab="${tab}"]`).classList.add("active");
-    const tabId = "tab" + tab.charAt(0).toUpperCase() + tab.slice(1);
-    document.getElementById(tabId).classList.add("active");
-
-    // Si abre tab de órdenes y ya está logueado, cargar órdenes
-    if (tab === "ordenes" && state.isAdminLoggedIn) {
-      loadOrdersAdmin();
-    }
-  }
-});
-
-// --- EVENTOS PARA MOSTRAR VISTA ORDEN Y ADMIN --- //
-document.getElementById("btnAdmin").addEventListener("click", () => {
-  document.getElementById("vistaOrden").classList.add("hidden");
-  document.getElementById("vistaAdmin").classList.remove("hidden");
-
-  document.getElementById("btnAdmin").classList.add("active");
-  document.getElementById("btnOrden").classList.remove("active");
-
-  // Verificar si ya está logueado
-  if (state.isAdminLoggedIn) {
-    document.getElementById("loginScreen").style.display = "none";
-    document.getElementById("adminContent").style.display = "block";
-    loadAdminData();
-  } else {
-    document.getElementById("loginScreen").style.display = "block";
-    document.getElementById("adminContent").style.display = "none";
-  }
-});
-
-document.getElementById("btnOrden").addEventListener("click", () => {
-  document.getElementById("vistaAdmin").classList.add("hidden");
-  document.getElementById("vistaOrden").classList.remove("hidden");
-
-  document.getElementById("btnOrden").classList.add("active");
-  document.getElementById("btnAdmin").classList.remove("active");
 });
 
 async function initializeApp() {
@@ -203,12 +154,22 @@ function switchView(view) {
   if (view === "orden") {
     document.getElementById("btnOrden").classList.add("active");
     document.getElementById("vistaOrden").classList.add("active");
+    document.getElementById("vistaOrden").classList.remove("hidden");
     document.getElementById("vistaAdmin").classList.remove("active");
+    document.getElementById("vistaAdmin").classList.add("hidden");
   } else {
     document.getElementById("btnAdmin").classList.add("active");
     document.getElementById("vistaAdmin").classList.add("active");
+    document.getElementById("vistaAdmin").classList.remove("hidden");
     document.getElementById("vistaOrden").classList.remove("active");
-    loadAdminData();
+    document.getElementById("vistaOrden").classList.add("hidden");
+    document.getElementById("loginScreen").style.display =
+      state.isAdminLoggedIn ? "none" : "block";
+    document.getElementById("adminContent").style.display =
+      state.isAdminLoggedIn ? "block" : "none";
+    if (state.isAdminLoggedIn) {
+      loadAdminData();
+    }
   }
 
   state.currentView = view;
@@ -226,6 +187,10 @@ function switchTab(tab) {
   document
     .getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)
     .classList.add("active");
+
+  if (tab === "ordenes" && state.isAdminLoggedIn) {
+    loadOrdersAdmin();
+  }
 }
 
 // ===================================
@@ -513,7 +478,59 @@ function calculateTotal() {
 // PROCESAR ORDEN
 // ===================================
 
+function getOrderRequestId(orderData) {
+  const storageKey = "sysposcff2-pending-order";
+  const fingerprint = JSON.stringify({
+    customerName: orderData.customerName,
+    orderType: orderData.orderType,
+    address: orderData.address,
+    deliveryCharge: orderData.deliveryCharge,
+    paymentMethod: orderData.paymentMethod,
+    tip: orderData.tip,
+    items: orderData.items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      notes: item.notes || "",
+    })),
+  });
+
+  try {
+    const pending = JSON.parse(localStorage.getItem(storageKey) || "null");
+    if (
+      pending &&
+      pending.fingerprint === fingerprint &&
+      Date.now() - pending.createdAt < 10 * 60 * 1000
+    ) {
+      return pending.requestId;
+    }
+  } catch (error) {
+    console.warn("No se pudo leer la orden pendiente:", error);
+  }
+
+  const requestId =
+    window.crypto && typeof window.crypto.randomUUID === "function"
+      ? window.crypto.randomUUID()
+      : Date.now() + "-" + Math.random().toString(36).slice(2);
+
+  try {
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ requestId, fingerprint, createdAt: Date.now() })
+    );
+  } catch (error) {
+    console.warn("No se pudo guardar la orden pendiente:", error);
+  }
+
+  return requestId;
+}
+
 async function processOrder() {
+  if (state.isProcessingOrder) {
+    showToast("La orden ya se está procesando", "info");
+    return;
+  }
+
   const customerName = document.getElementById("customerName").value.trim();
   const orderType = document.querySelector(
     'input[name="orderType"]:checked'
@@ -569,22 +586,38 @@ async function processOrder() {
     date: new Date().toISOString(),
   };
 
-  const result = await fetchData("createOrder", orderData);
+  orderData.requestId = getOrderRequestId(orderData);
+  const processButton = document.getElementById("btnProcessOrder");
+  const originalButtonText = processButton.textContent;
+  state.isProcessingOrder = true;
+  processButton.disabled = true;
+  processButton.textContent = "Procesando...";
 
-  if (result && result.success) {
-    await printReceipts(result.orderNumber, orderData);
+  try {
+    const result = await fetchData("createOrder", orderData);
 
-    state.cart = [];
-    document.getElementById("customerName").value = "";
-    document.getElementById("deliveryAddress").value = "";
-    document.getElementById("deliveryCharge").value = "";
-    setDefaultTipForOrderType(orderType);
-    renderCart();
+    if (result && result.success) {
+      localStorage.removeItem("sysposcff2-pending-order");
+      await printReceipts(result.orderNumber, orderData);
 
-    showToast(`Orden #${result.orderNumber} procesada`, "success");
+      state.cart = [];
+      document.getElementById("customerName").value = "";
+      document.getElementById("deliveryAddress").value = "";
+      document.getElementById("deliveryCharge").value = "";
+      setDefaultTipForOrderType(orderType);
+      renderCart();
+
+      const message = result.duplicate
+        ? `Orden #${result.orderNumber} recuperada sin duplicarla`
+        : `Orden #${result.orderNumber} procesada`;
+      showToast(message, "success");
+    }
+  } finally {
+    state.isProcessingOrder = false;
+    processButton.disabled = false;
+    processButton.textContent = originalButtonText;
+    showLoader(false);
   }
-
-  showLoader(false);
 }
 
 // ===================================
@@ -1438,25 +1471,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Listeners para el login
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("btnLogout").addEventListener("click", logout);
-});
-
-// --- FUNCIONAMIENTO DE LAS PESTAÑAS (TABS) DEL ADMIN --- //
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document
-      .querySelectorAll(".tab-btn")
-      .forEach((b) => b.classList.remove("active"));
-    document
-      .querySelectorAll(".tab-content")
-      .forEach((tab) => tab.classList.remove("active"));
-
-    btn.classList.add("active");
-
-    const tabId = btn.dataset.tab; // productos, categorias u ordenes
-    document
-      .getElementById("tab" + tabId.charAt(0).toUpperCase() + tabId.slice(1))
-      .classList.add("active");
-  });
 });
 
 // ===================================

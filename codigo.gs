@@ -438,27 +438,48 @@ function deleteProduct(data) {
 
 function createOrder(data) {
   const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  lock.waitLock(30000);
   try {
-  const ordersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Órdenes');
-  const detailsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Detalle_Órdenes');
-  const orderNumber = ordersSheet.getLastRow();
+    const ordersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Órdenes');
+    const detailsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Detalle_Órdenes');
+    const requestId = String(data.requestId || '').trim();
+    const lastRow = ordersSheet.getLastRow();
 
-  ordersSheet.appendRow([
-    orderNumber,
-    new Date(),
-    data.customerName,
-    data.orderType,
-    data.address || '',           // NUEVO
-    data.deliveryCharge || 0,     // NUEVO
-    data.paymentMethod || 'Efectivo', // NUEVO
-    data.subtotal || data.total,   // NUEVO
-    data.total,
-    'Completada'
-  ]);
+    // Una misma solicitud nunca debe crear dos órdenes, aunque el navegador
+    // repita la petición por doble clic, recarga o demora de red.
+    if (requestId && lastRow > 1) {
+      const requestIds = ordersSheet.getRange(2, 11, lastRow - 1, 1).getDisplayValues();
+      for (let i = requestIds.length - 1; i >= 0; i--) {
+        if (requestIds[i][0] === requestId) {
+          return {
+            success: true,
+            orderNumber: ordersSheet.getRange(i + 2, 1).getValue(),
+            duplicate: true
+          };
+        }
+      }
+    }
 
-  data.items.forEach(item => {
-    detailsSheet.appendRow([
+    if (!ordersSheet.getRange(1, 11).getValue()) {
+      ordersSheet.getRange(1, 11).setValue('ID Solicitud');
+    }
+
+    const orderNumber = lastRow;
+    ordersSheet.appendRow([
+      orderNumber,
+      new Date(),
+      data.customerName,
+      data.orderType,
+      data.address || '',
+      data.deliveryCharge || 0,
+      data.paymentMethod || 'Efectivo',
+      data.subtotal || data.total,
+      data.total,
+      'Completada',
+      requestId
+    ]);
+
+    const detailRows = (data.items || []).map(item => [
       orderNumber,
       item.name,
       item.quantity,
@@ -466,9 +487,13 @@ function createOrder(data) {
       item.price * item.quantity,
       item.notes || ''
     ]);
-  });
+    if (detailRows.length > 0) {
+      detailsSheet
+        .getRange(detailsSheet.getLastRow() + 1, 1, detailRows.length, 6)
+        .setValues(detailRows);
+    }
 
-  return { success: true, orderNumber: orderNumber };
+    return { success: true, orderNumber: orderNumber, duplicate: false };
   } finally {
     lock.releaseLock();
   }
