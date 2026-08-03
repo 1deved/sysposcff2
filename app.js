@@ -1473,8 +1473,6 @@ async function deleteAllOrders() {
 
 // Inicializar al cargar
 document.addEventListener("DOMContentLoaded", async () => {
-  // Mostrar la orden de inmediato; el catálogo guardado se refresca en segundo plano.
-  switchView("orden");
   await initializeApp();
 
   // Evento para tipo de orden
@@ -1491,6 +1489,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     'input[name="orderType"]:checked'
   ).value;
   setDefaultTipForOrderType(initialOrderType);
+
+  // Vista por defecto
+  switchView("orden");
 
   // Listeners para el login
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
