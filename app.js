@@ -6,8 +6,6 @@
 const SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbwEQ8WxnePFNnHir_5BcPdzJ2GTvecAFtzKxSRH0J4y93M-mtFlxaOB6pcn5e4DrrNS/exec";
 const INITIAL_DATA_CACHE_KEY = "sysposcff2-initial-data-v1";
-const INITIAL_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
-const DASHBOARD_CACHE_KEY = "sysposcff2-dashboard-v1";
 
 // Estado de la aplicación
 let state = {
@@ -54,14 +52,12 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function initializeApp() {
-  const cache = loadInitialDataCache();
-  if (cache.found) {
+  const hasCachedData = loadInitialDataCache();
+  if (hasCachedData) {
     renderProducts();
     renderCategoryFilters();
   }
-  if (cache.fresh) return;
-
-  showLoader(!cache.found);
+  showLoader(!hasCachedData);
   try {
     await loadInitialData();
     renderProducts();
@@ -831,30 +827,20 @@ async function loadInitialData() {
 function loadInitialDataCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(INITIAL_DATA_CACHE_KEY));
-    if (!cached || !Array.isArray(cached.products) || !cached.products.length) {
-      return { found: false, fresh: false };
-    }
+    if (!cached || !Array.isArray(cached.products) || !cached.products.length) return false;
     state.categories = cached.categories || [];
     state.products = cached.products;
     state.predefinedNotes = cached.predefinedNotes || [];
-    return {
-      found: true,
-      fresh:
-        Number(cached.cachedAt) > 0 &&
-        Date.now() - Number(cached.cachedAt) < INITIAL_DATA_CACHE_TTL_MS,
-    };
+    return true;
   } catch (error) {
     localStorage.removeItem(INITIAL_DATA_CACHE_KEY);
-    return { found: false, fresh: false };
+    return false;
   }
 }
 
 function saveInitialDataCache(data) {
   try {
-    localStorage.setItem(
-      INITIAL_DATA_CACHE_KEY,
-      JSON.stringify({ ...data, cachedAt: Date.now() })
-    );
+    localStorage.setItem(INITIAL_DATA_CACHE_KEY, JSON.stringify(data));
   } catch (error) {
     console.warn("No se pudo guardar el catálogo local", error);
   }
@@ -885,18 +871,7 @@ async function loadDashboard() {
   const dateStart = startInput.value;
   const dateEnd = endInput.value;
   const requestId = ++dashboardRequestId;
-  let hasCachedDashboard = false;
-  try {
-    const cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY));
-    if (cached && cached.dateStart === dateStart && cached.dateEnd === dateEnd && cached.data) {
-      renderDashboard(cached.data, dateStart, dateEnd);
-      hasCachedDashboard = true;
-    }
-  } catch (error) {
-    localStorage.removeItem(DASHBOARD_CACHE_KEY);
-  }
-
-  showLoader(!hasCachedDashboard, "Cargando ventas...");
+  showLoader(true, "Cargando ventas...");
   try {
     const result = await fetchData("getDashboardData", {
       filters: { dateStart, dateEnd },
@@ -906,12 +881,7 @@ async function loadDashboard() {
       showToast("No se pudo cargar el dashboard", "error");
       return;
     }
-    const dashboardData = result.data || {};
-    renderDashboard(dashboardData, dateStart, dateEnd);
-    localStorage.setItem(
-      DASHBOARD_CACHE_KEY,
-      JSON.stringify({ dateStart, dateEnd, data: dashboardData, cachedAt: Date.now() })
-    );
+    renderDashboard(result.data || {}, dateStart, dateEnd);
   } finally {
     if (requestId === dashboardRequestId) showLoader(false);
   }
@@ -946,15 +916,7 @@ function renderDashboard(data, start, end) {
 // --- LOGIN DE ADMINISTRACIÓN --- //
 
 async function loadAdminData() {
-  const cache = loadInitialDataCache();
-  if (cache.found) {
-    renderProductsTable();
-    renderCategoriesGrid();
-    updateCategorySelects();
-  }
-  if (cache.fresh) return;
-
-  showLoader(!cache.found);
+  showLoader(true);
   try {
     await loadInitialData();
     renderProductsTable();
