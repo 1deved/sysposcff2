@@ -5,6 +5,7 @@
 // URL del Web App de Google Apps Script (REEMPLAZAR CON LA URL REAL)
 const SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbwEQ8WxnePFNnHir_5BcPdzJ2GTvecAFtzKxSRH0J4y93M-mtFlxaOB6pcn5e4DrrNS/exec";
+const INITIAL_DATA_CACHE_KEY = "sysposcff2-catalog-v2";
 
 // Estado de la aplicación
 let state = {
@@ -818,13 +819,44 @@ function dashboardDateValue(date) {
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
 }
 
-async function loadInitialData() {
+function applyInitialData(data) {
+  state.categories = data.categories || [];
+  state.products = data.products || [];
+  state.predefinedNotes = data.predefinedNotes || [];
+}
+
+function readInitialDataCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(INITIAL_DATA_CACHE_KEY) || "null");
+    return cached && cached.data && Array.isArray(cached.data.products)
+      ? cached.data
+      : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveInitialDataCache(data) {
+  try {
+    localStorage.setItem(
+      INITIAL_DATA_CACHE_KEY,
+      JSON.stringify({ savedAt: Date.now(), data })
+    );
+  } catch (error) {
+    console.warn("No se pudo guardar el catálogo local:", error);
+  }
+}
+
+async function refreshInitialData(renderAfterRefresh) {
   const result = await fetchData("getInitialData");
   if (result && result.success && result.data) {
-    state.categories = result.data.categories || [];
-    state.products = result.data.products || [];
-    state.predefinedNotes = result.data.predefinedNotes || [];
-    return;
+    applyInitialData(result.data);
+    saveInitialDataCache(result.data);
+    if (renderAfterRefresh) {
+      renderProducts();
+      renderCategoryFilters();
+    }
+    return true;
   }
 
   // Compatibilidad temporal mientras se publica la nueva versión de Apps Script.
@@ -834,10 +866,32 @@ async function loadInitialData() {
       fetchData("getProducts"),
       fetchData("getPredefinedNotes"),
     ]);
-    if (categories.success) state.categories = categories.data || [];
-    if (products.success) state.products = products.data || [];
-    if (notes.success) state.predefinedNotes = notes.data || [];
+    const fallbackData = {
+      categories: categories.success ? categories.data || [] : [],
+      products: products.success ? products.data || [] : [],
+      predefinedNotes: notes.success ? notes.data || [] : [],
+    };
+    applyInitialData(fallbackData);
+    saveInitialDataCache(fallbackData);
+    if (renderAfterRefresh) {
+      renderProducts();
+      renderCategoryFilters();
+    }
+    return true;
   }
+
+  return false;
+}
+
+async function loadInitialData(forceRefresh = false) {
+  const cached = !forceRefresh ? readInitialDataCache() : null;
+  if (cached) {
+    applyInitialData(cached);
+    refreshInitialData(true);
+    return;
+  }
+
+  await refreshInitialData(false);
 }
 
 function currentOperationalDate() {
@@ -912,7 +966,7 @@ function renderDashboard(data, start, end) {
 async function loadAdminData() {
   showLoader(true);
   try {
-    await loadInitialData();
+    await loadInitialData(true);
     renderProductsTable();
     renderCategoriesGrid();
     updateCategorySelects();
