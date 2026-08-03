@@ -855,6 +855,11 @@ async function refreshInitialData(renderAfterRefresh) {
     if (renderAfterRefresh) {
       renderProducts();
       renderCategoryFilters();
+      if (state.isAdminLoggedIn && state.currentView === "admin") {
+        renderProductsTable();
+        renderCategoriesGrid();
+        updateCategorySelects();
+      }
     }
     return true;
   }
@@ -876,6 +881,11 @@ async function refreshInitialData(renderAfterRefresh) {
     if (renderAfterRefresh) {
       renderProducts();
       renderCategoryFilters();
+      if (state.isAdminLoggedIn && state.currentView === "admin") {
+        renderProductsTable();
+        renderCategoriesGrid();
+        updateCategorySelects();
+      }
     }
     return true;
   }
@@ -966,7 +976,7 @@ function renderDashboard(data, start, end) {
 async function loadAdminData() {
   showLoader(true);
   try {
-    await loadInitialData(true);
+    await loadInitialData();
     renderProductsTable();
     renderCategoriesGrid();
     updateCategorySelects();
