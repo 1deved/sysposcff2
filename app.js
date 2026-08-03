@@ -232,7 +232,7 @@ function switchTab(tab) {
 // COMUNICACIÓN CON GOOGLE SHEETS
 // ===================================
 
-function fetchDataOnce(action, data = {}, silent = false) {
+function fetchData(action, data = {}) {
   return new Promise((resolve) => {
     try {
       // Crear nombre único para el callback
@@ -270,9 +270,7 @@ function fetchDataOnce(action, data = {}, silent = false) {
         resolve(response);
       };
       const timeoutId = setTimeout(() => {
-        if (!silent) {
-          showToast("El servidor está tardando demasiado. Intente nuevamente.", "error");
-        }
+        showToast("El servidor está tardando demasiado. Intente nuevamente.", "error");
         finish({ success: false, error: "Tiempo de espera agotado" });
       }, timeoutMs);
 
@@ -283,7 +281,7 @@ function fetchDataOnce(action, data = {}, silent = false) {
 
       // Manejar errores
       script.onerror = function () {
-        if (!silent) showToast("Error de conexión con el servidor", "error");
+        showToast("Error de conexión con el servidor", "error");
         finish({ success: false, error: "Error al cargar el servidor" });
       };
 
@@ -292,7 +290,7 @@ function fetchDataOnce(action, data = {}, silent = false) {
       document.body.appendChild(script);
     } catch (error) {
       console.error("Error al comunicarse con Google Sheets:", error);
-      if (!silent) showToast("Error de conexión con el servidor", "error");
+      showToast("Error de conexión con el servidor", "error");
       resolve({ success: false, error: error.message });
     }
   });
@@ -785,23 +783,6 @@ async function printToThermalPrinter(content, copy) {
 function dashboardDateValue(date) {
   const offset = date.getTimezoneOffset();
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
-}
-
-async function fetchData(action, data = {}) {
-  const safeReadActions = new Set([
-    "getInitialData",
-    "getCategories",
-    "getProducts",
-    "getPredefinedNotes",
-    "getOrders",
-    "getDashboardData",
-  ]);
-  const canRetry = safeReadActions.has(action);
-  const firstResult = await fetchDataOnce(action, data, canRetry);
-  if (firstResult.success || !canRetry) return firstResult;
-
-  await new Promise((resolve) => setTimeout(resolve, 750));
-  return fetchDataOnce(action, data);
 }
 
 async function loadInitialData() {
