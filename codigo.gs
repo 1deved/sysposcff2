@@ -570,12 +570,12 @@ function getOrders(filters) {
       return [];
     }
 
-    const dataRange = sheet.getDataRange();
-    const allData = dataRange.getValues();
-
-    if (allData.length <= 1) return [];
-
-    const headers = allData.shift(); // Quita la fila de encabezados
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return [];
+    // Solo se leen las nueve columnas usadas por órdenes; evita escanear
+    // columnas auxiliares o formatos vacíos de toda la hoja.
+    const allData = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+    const timeZone = Session.getScriptTimeZone();
 
     // Preparar filtros
     const dateStart = filters.dateStart ? new Date(filters.dateStart) : null;
@@ -595,7 +595,7 @@ function getOrders(filters) {
 
       let dateMatch = true;
       if (operationalDate) {
-        dateMatch = getOperationalDate(row) === operationalDate;
+        dateMatch = getOperationalDate(row, timeZone) === operationalDate;
       } else if (dateStart && dateEnd) {
         dateMatch = orderDate >= dateStart && orderDate <= dateEnd;
       }
@@ -619,7 +619,7 @@ function getOrders(filters) {
       paymentMethod: item.data[6],
       // La venta corresponde únicamente a los productos; el domicilio va aparte.
       total: Number(item.data[7]) || Number(item.data[8]) || 0,
-      operationalDate: getOperationalDate(item.data),
+      operationalDate: getOperationalDate(item.data, timeZone),
     }));
   } catch (err) {
     Logger.log("Error en getOrders: %s", err.toString());
@@ -791,8 +791,8 @@ function getDashboardData(filters) {
 
 const OPERATIONAL_CUTOFF_HOURS = 5;
 
-function getOperationalDate(row) {
+function getOperationalDate(row, timeZone) {
   const orderDate = new Date(row[1]);
   const shiftedDate = new Date(orderDate.getTime() - OPERATIONAL_CUTOFF_HOURS * 60 * 60 * 1000);
-  return Utilities.formatDate(shiftedDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return Utilities.formatDate(shiftedDate, timeZone || Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
