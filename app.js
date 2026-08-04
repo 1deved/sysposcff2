@@ -97,11 +97,6 @@ function setupEventListeners() {
     }
   });
 
-  document.getElementById("productSearch").addEventListener("input", (e) => {
-    state.productSearch = e.target.value;
-    renderProducts();
-  });
-
   // Listener para notas rápidas
   document.getElementById("quickNotes").addEventListener("change", (e) => {
     const note = e.target.value;
@@ -127,6 +122,11 @@ function setupEventListeners() {
     } else {
       document.getElementById("tipAmount").value = "";
     }
+  });
+
+  document.getElementById("productSearch").addEventListener("input", (e) => {
+    state.productSearch = e.target.value;
+    renderProducts();
   });
 }
 
@@ -336,7 +336,7 @@ function renderProducts() {
 
   if (filteredProducts.length === 0) {
     grid.innerHTML =
-      '<div class="empty-cart"><p>📦</p><span>No hay productos disponibles</span></div>';
+      '<div class="empty-cart"><p>🔍</p><span>No se encontraron productos</span></div>';
     return;
   }
 
