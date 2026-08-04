@@ -6,6 +6,7 @@
 const SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbwEQ8WxnePFNnHir_5BcPdzJ2GTvecAFtzKxSRH0J4y93M-mtFlxaOB6pcn5e4DrrNS/exec";
 const INITIAL_DATA_CACHE_KEY = "sysposcff2-catalog-v2";
+const ORDERS_CACHE_KEY = "sysposcff2-orders-v1";
 
 // Estado de la aplicación
 let state = {
@@ -227,7 +228,11 @@ function fetchDataOnce(action, data = {}, showErrors = true) {
       const script = document.createElement("script");
       const url = `${SCRIPT_URL}?${params.toString()}`;
       let settled = false;
-      const timeoutMs = action === "createOrder" ? 90000 : 45000;
+      const timeoutMs = action === "createOrder"
+        ? 90000
+        : RETRYABLE_READ_ACTIONS.has(action)
+          ? 15000
+          : 45000;
       const cleanup = () => {
         if (script.parentNode) script.parentNode.removeChild(script);
         delete window[callbackName];
@@ -1345,13 +1350,35 @@ async function loadOrdersAdmin() {
     filters.operationalDate = dateValue;
   }
 
-  showLoader(true);
+  let cachedOrders = null;
+  try {
+    const cached = JSON.parse(localStorage.getItem(ORDERS_CACHE_KEY) || "null");
+    if (cached && Date.now() - cached.savedAt < 5 * 60 * 1000 && JSON.stringify(cached.filters) === JSON.stringify(filters) && Array.isArray(cached.orders)) {
+      cachedOrders = cached.orders;
+      renderFilteredOrders(cachedOrders, dateValue, paymentMethod);
+    }
+  } catch (error) {
+    console.warn("No se pudo leer la caché de órdenes:", error);
+  }
+
+  showLoader(!cachedOrders, "Cargando órdenes...");
   // Enviamos el objeto de filtros completo.
   const result = await fetchData("getOrders", { filters });
   showLoader(false);
 
   if (result && result.success) {
-    let orders = result.data;
+    const freshOrders = Array.isArray(result.data) ? result.data : [];
+    try {
+      localStorage.setItem(ORDERS_CACHE_KEY, JSON.stringify({ filters, orders: freshOrders, savedAt: Date.now() }));
+    } catch (error) {
+      console.warn("No se pudo guardar la caché de órdenes:", error);
+    }
+    renderFilteredOrders(freshOrders, dateValue, paymentMethod);
+  }
+}
+
+function renderFilteredOrders(sourceOrders, dateValue, paymentMethod) {
+    let orders = sourceOrders;
 
     // --- FILTRADO CLIENT-SIDE ---
     if (dateValue) {
@@ -1382,7 +1409,6 @@ async function loadOrdersAdmin() {
     }
 
     renderOrdersTable(orders);
-  }
 }
 
 // Mostrar tabla de órdenes - VERSIÓN CORREGIDA
