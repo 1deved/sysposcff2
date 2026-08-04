@@ -320,14 +320,19 @@ function sendOrderPost(orderData) {
 }
 
 async function createOrderReliably(orderData) {
+  // En condiciones normales JSONP responde en pocos segundos y permite
+  // imprimir inmediatamente. Si ese salto falla, se usa POST como respaldo.
+  const fastResult = await fetchDataOnce("createOrder", orderData, false, 12000);
+  if (fastResult && fastResult.success) return fastResult;
+
   sendOrderPost(orderData);
   for (let attempt = 0; attempt < 8; attempt++) {
-    await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 1200 : 1800));
+    await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 600 : 1200));
     const status = await fetchDataOnce(
       "getOrderStatus",
       { requestId: orderData.requestId },
       false,
-      8000
+      4000
     );
     if (status && status.success && status.found) {
       return {
@@ -337,7 +342,7 @@ async function createOrderReliably(orderData) {
       };
     }
     // Si la primera entrega se perdió, repetirla es seguro por requestId.
-    if (attempt === 2) sendOrderPost(orderData);
+    if (attempt === 1) sendOrderPost(orderData);
   }
   showToast("No fue posible confirmar la orden. Intente nuevamente.", "error");
   return { success: false, error: "Orden no confirmada" };
