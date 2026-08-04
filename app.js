@@ -286,7 +286,7 @@ const RETRYABLE_READ_ACTIONS = new Set([
   "getDashboardData",
 ]);
 
-async function fetchData(action, data = {}) {
+async function fetchData(action, data = {}, showErrors = true) {
   if (action === "createOrder") {
     // Apps Script puede guardar la orden aunque su respuesta tarde demasiado.
     // Repetir con el mismo requestId es seguro: el servidor devuelve la orden
@@ -299,13 +299,48 @@ async function fetchData(action, data = {}) {
   }
 
   const canRetry = RETRYABLE_READ_ACTIONS.has(action);
-  const firstResult = await fetchDataOnce(action, data, !canRetry);
+  const firstResult = await fetchDataOnce(action, data, showErrors && !canRetry);
   if (!canRetry || (firstResult && firstResult.success)) {
     return firstResult;
   }
 
   await new Promise((resolve) => setTimeout(resolve, 800));
-  return fetchDataOnce(action, data, true);
+  return fetchDataOnce(action, data, showErrors);
+}
+
+function sendOrderPost(orderData) {
+  // La respuesta de Apps Script pasa por un dominio intermedio que a veces
+  // falla con JSONP. La escritura se envía sin depender de esa respuesta.
+  fetch(SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=UTF-8" },
+    body: JSON.stringify({ action: "createOrder", ...orderData }),
+  }).catch(() => {});
+}
+
+async function createOrderReliably(orderData) {
+  sendOrderPost(orderData);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 1200 : 1800));
+    const status = await fetchDataOnce(
+      "getOrderStatus",
+      { requestId: orderData.requestId },
+      false,
+      8000
+    );
+    if (status && status.success && status.found) {
+      return {
+        success: true,
+        orderNumber: status.orderNumber,
+        duplicate: attempt > 0,
+      };
+    }
+    // Si la primera entrega se perdió, repetirla es seguro por requestId.
+    if (attempt === 2) sendOrderPost(orderData);
+  }
+  showToast("No fue posible confirmar la orden. Intente nuevamente.", "error");
+  return { success: false, error: "Orden no confirmada" };
 }
 
 async function loadCategories() {
@@ -641,7 +676,7 @@ async function processOrder() {
   processButton.textContent = "Procesando...";
 
   try {
-    const result = await fetchData("createOrder", orderData);
+    const result = await createOrderReliably(orderData);
 
     if (result && result.success) {
       localStorage.removeItem("sysposcff2-pending-order");
@@ -894,7 +929,7 @@ function saveInitialDataCache(data) {
 }
 
 async function refreshInitialData(renderAfterRefresh) {
-  const result = await fetchData("getInitialData");
+  const result = await fetchData("getInitialData", {}, !renderAfterRefresh);
   if (result && result.success && result.data) {
     applyInitialData(result.data);
     saveInitialDataCache(result.data);
@@ -946,7 +981,18 @@ async function loadInitialData(forceRefresh = false) {
     refreshInitialData(true);
     return;
   }
-
+  try {
+    const response = await fetch("catalog.json");
+    if (response.ok) {
+      const bundled = await response.json();
+      applyInitialData(bundled);
+      saveInitialDataCache(bundled);
+      refreshInitialData(true);
+      return;
+    }
+  } catch (error) {
+    console.warn("No se pudo cargar el catálogo local:", error);
+  }
   await refreshInitialData(false);
 }
 

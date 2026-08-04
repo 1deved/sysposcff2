@@ -62,6 +62,9 @@ function doGet(e) {
       case 'createOrder':
         response = createOrder(data);
         break;
+      case 'getOrderStatus':
+        response = getOrderStatus(data);
+        break;
 
       case 'login':
         response = validateLogin(data);
@@ -526,6 +529,22 @@ function createOrder(data) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function getOrderStatus(data) {
+  const requestId = String(data.requestId || '').trim();
+  if (!requestId) return { success: true, found: false };
+  const cache = CacheService.getScriptCache();
+  const cachedOrder = cache.get('order_' + requestId);
+  if (cachedOrder) {
+    return { success: true, found: true, orderNumber: Number(cachedOrder) };
+  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const orderNumber = findOrderByRequestId(ss.getSheetByName('Órdenes'), requestId) ||
+    findOrderByRequestId(ss.getSheetByName('Órdenes_Archivo'), requestId);
+  if (!orderNumber) return { success: true, found: false };
+  cache.put('order_' + requestId, String(orderNumber), 600);
+  return { success: true, found: true, orderNumber: orderNumber };
 }
 
 

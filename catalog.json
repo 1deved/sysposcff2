@@ -1,0 +1,429 @@
+{
+  "categories": [
+    {
+      "id": "CAT001",
+      "name": "Salchipapas",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "CAT002",
+      "name": "Perros Calientes",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "CAT003",
+      "name": "Hamburguesas",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "CAT004",
+      "name": "Asados",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "CAT005",
+      "name": "Adicionales",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "CAT939f964d",
+      "name": "Bebidas",
+      "createdAt": "2026-07-18T23:45:23.000Z"
+    }
+  ],
+  "products": [
+    {
+      "id": "PROD001",
+      "name": "Salchipapa Sencilla",
+      "category": "Salchipapas",
+      "price": 12000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD003",
+      "name": "Salchipapa Suiza",
+      "category": "Salchipapas",
+      "price": 20000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD004",
+      "name": "Salchipapa Suiza Gratinada",
+      "category": "Salchipapas",
+      "price": 22000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD005",
+      "name": "Salchipapa Mixta",
+      "category": "Salchipapas",
+      "price": 26000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD006",
+      "name": "Salchicarne",
+      "category": "Salchipapas",
+      "price": 28000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD007",
+      "name": "Salchipollo",
+      "category": "Salchipapas",
+      "price": 26000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD008",
+      "name": "Salchicarne-Pollo",
+      "category": "Salchipapas",
+      "price": 28000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD009",
+      "name": "Salchipapa Para Dos",
+      "category": "Salchipapas",
+      "price": 30000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD010",
+      "name": "Salchipapa Especial (3 personas)",
+      "category": "Salchipapas",
+      "price": 38000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD011",
+      "name": "Salvajada (4 personas)",
+      "category": "Salchipapas",
+      "price": 46000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD012",
+      "name": "Mega Salvajada (6 personas)",
+      "category": "Salchipapas",
+      "price": 80000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD013",
+      "name": "Perro Sencillo",
+      "category": "Perros Calientes",
+      "price": 7000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD014",
+      "name": "Perro Gratinado",
+      "category": "Perros Calientes",
+      "price": 8000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD015",
+      "name": "Perro a la Plancha",
+      "category": "Perros Calientes",
+      "price": 8000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD016",
+      "name": "Perro Plancha Gratinado",
+      "category": "Perros Calientes",
+      "price": 9000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD017",
+      "name": "Perro Gemelo",
+      "category": "Perros Calientes",
+      "price": 9000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD018",
+      "name": "Perro Gemelo Gratinado",
+      "category": "Perros Calientes",
+      "price": 11000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD019",
+      "name": "Perro Suizo",
+      "category": "Perros Calientes",
+      "price": 17000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD020",
+      "name": "Perro Suizo en Combo",
+      "category": "Perros Calientes",
+      "price": 25000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD021",
+      "name": "Perro en Combo",
+      "category": "Perros Calientes",
+      "price": 16000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD022",
+      "name": "Perropollo",
+      "category": "Perros Calientes",
+      "price": 15000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD023",
+      "name": "Perro 4 Carnes",
+      "category": "Perros Calientes",
+      "price": 19000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD024",
+      "name": "Perro Mixto",
+      "category": "Perros Calientes",
+      "price": 17000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD025",
+      "name": "Butyperro",
+      "category": "Perros Calientes",
+      "price": 13000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD026",
+      "name": "Choryperro",
+      "category": "Perros Calientes",
+      "price": 13000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD027",
+      "name": "Miti Suizo",
+      "category": "Perros Calientes",
+      "price": 12000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD028",
+      "name": "Hamburguesa de Carne",
+      "category": "Hamburguesas",
+      "price": 20000,
+      "description": "Carne, pan brioche, queso mozzarella, salsa tártara, salsa piña y vegetales.",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD029",
+      "name": "Hamburguesa Doble Carne",
+      "category": "Hamburguesas",
+      "price": 25000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD030",
+      "name": "Hamburguesa de Pollo",
+      "category": "Hamburguesas",
+      "price": 20000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD031",
+      "name": "Hamburguesa en Combo",
+      "category": "Hamburguesas",
+      "price": 22000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD032",
+      "name": "Hamburguesa Especial",
+      "category": "Hamburguesas",
+      "price": 27000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD033",
+      "name": "Pechuga Asada",
+      "category": "Asados",
+      "price": 26000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD034",
+      "name": "Pechuga Gratinada",
+      "category": "Asados",
+      "price": 28000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD035",
+      "name": "Porción de Papas",
+      "category": "Adicionales",
+      "price": 6000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD036",
+      "name": "Queso Mozzarella",
+      "category": "Adicionales",
+      "price": 5000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD037",
+      "name": "Salchicha Suiza",
+      "category": "Adicionales",
+      "price": 8000,
+      "description": "",
+      "createdAt": "2026-07-17T20:55:38.000Z"
+    },
+    {
+      "id": "PROD164db85a",
+      "name": "salchipapa sencilla gratinada",
+      "category": "Salchipapas",
+      "price": 15000,
+      "description": "",
+      "createdAt": "2026-07-18T23:58:28.000Z"
+    },
+    {
+      "id": "PRODa118cc0b",
+      "name": "Coca cola 1 litro plastica",
+      "category": "Bebidas",
+      "price": 7000,
+      "description": "",
+      "createdAt": "2026-07-19T00:00:00.000Z"
+    },
+    {
+      "id": "PROD248f4595",
+      "name": "SalchiButifarra",
+      "category": "Salchipapas",
+      "price": 17000,
+      "description": "",
+      "createdAt": "2026-07-19T00:17:24.000Z"
+    },
+    {
+      "id": "PRODf0c3870b",
+      "name": "Salchi Chorizo",
+      "category": "Salchipapas",
+      "price": 17000,
+      "description": "",
+      "createdAt": "2026-07-19T00:18:00.000Z"
+    },
+    {
+      "id": "PROD63d4fd95",
+      "name": "Coca cola 1.5 grande plastica",
+      "category": "Bebidas",
+      "price": 9000,
+      "description": "",
+      "createdAt": "2026-07-19T00:19:27.000Z"
+    },
+    {
+      "id": "PROD67ce7470",
+      "name": "Jugo Hit Grande de caja",
+      "category": "Bebidas",
+      "price": 7000,
+      "description": "",
+      "createdAt": "2026-07-19T00:20:01.000Z"
+    },
+    {
+      "id": "PROD899c3185",
+      "name": "Botella de agua",
+      "category": "Bebidas",
+      "price": 2000,
+      "description": "",
+      "createdAt": "2026-07-19T00:20:41.000Z"
+    },
+    {
+      "id": "PRODbeb73b17",
+      "name": "Cola cola Personal",
+      "category": "Bebidas",
+      "price": 4000,
+      "description": "",
+      "createdAt": "2026-07-19T00:21:08.000Z"
+    },
+    {
+      "id": "PROD26ed0bc6",
+      "name": "Jugo Hit Personal 500 ml",
+      "category": "Bebidas",
+      "price": 4000,
+      "description": "",
+      "createdAt": "2026-07-26T00:03:25.000Z"
+    },
+    {
+      "id": "PRODed1167a0",
+      "name": "Perro Americano",
+      "category": "Perros Calientes",
+      "price": 13000,
+      "description": "",
+      "createdAt": "2026-08-03T23:51:33.000Z"
+    },
+    {
+      "id": "PROD4c35cdf4",
+      "name": "Perro Americano",
+      "category": "Perros Calientes",
+      "price": 13000,
+      "description": "",
+      "createdAt": "2026-08-03T23:52:05.000Z"
+    },
+    {
+      "id": "PRODa2c5433a",
+      "name": "Perro Americano",
+      "category": "Perros Calientes",
+      "price": 13000,
+      "description": "",
+      "createdAt": "2026-08-03T23:52:20.000Z"
+    },
+    {
+      "id": "PRODeb902040",
+      "name": "Perro Americano",
+      "category": "Perros Calientes",
+      "price": 13000,
+      "description": "",
+      "createdAt": "2026-08-03T23:52:29.000Z"
+    }
+  ],
+  "predefinedNotes": []
+}
