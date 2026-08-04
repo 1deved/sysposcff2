@@ -203,7 +203,7 @@ function switchTab(tab) {
 // COMUNICACIÓN CON GOOGLE SHEETS
 // ===================================
 
-function fetchDataOnce(action, data = {}, showErrors = true) {
+function fetchDataOnce(action, data = {}, showErrors = true, timeoutOverride = null) {
   return new Promise((resolve) => {
     try {
       // Crear nombre único para el callback
@@ -228,11 +228,11 @@ function fetchDataOnce(action, data = {}, showErrors = true) {
       const script = document.createElement("script");
       const url = `${SCRIPT_URL}?${params.toString()}`;
       let settled = false;
-      const timeoutMs = action === "createOrder"
+      const timeoutMs = timeoutOverride || (action === "createOrder"
         ? 90000
         : RETRYABLE_READ_ACTIONS.has(action)
           ? 15000
-          : 45000;
+          : 45000);
       const cleanup = () => {
         if (script.parentNode) script.parentNode.removeChild(script);
         delete window[callbackName];
@@ -287,6 +287,17 @@ const RETRYABLE_READ_ACTIONS = new Set([
 ]);
 
 async function fetchData(action, data = {}) {
+  if (action === "createOrder") {
+    // Apps Script puede guardar la orden aunque su respuesta tarde demasiado.
+    // Repetir con el mismo requestId es seguro: el servidor devuelve la orden
+    // existente en vez de insertarla nuevamente.
+    const firstResult = await fetchDataOnce(action, data, false, 45000);
+    if (firstResult && firstResult.success) return firstResult;
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return fetchDataOnce(action, data, true, 90000);
+  }
+
   const canRetry = RETRYABLE_READ_ACTIONS.has(action);
   const firstResult = await fetchDataOnce(action, data, !canRetry);
   if (!canRetry || (firstResult && firstResult.success)) {
