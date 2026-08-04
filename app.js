@@ -4,7 +4,7 @@
 
 // URL del Web App de Google Apps Script (REEMPLAZAR CON LA URL REAL)
 const SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbwEQ8WxnePFNnHir_5BcPdzJ2GTvecAFtzKxSRH0J4y93M-mtFlxaOB6pcn5e4DrrNS/exec";
+  "https://script.google.com/macros/s/AKfycbxRfo5R_LfbPO2ksDUO2Dfwe4pwUTt3_RLyVBR1ZOFaGniJa8TFwOPCFClxV8UKR8gpNA/exec";
 const INITIAL_DATA_CACHE_KEY = "sysposcff2-catalog-v2";
 const ORDERS_CACHE_KEY = "sysposcff2-orders-v1";
 
