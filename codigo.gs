@@ -124,8 +124,6 @@ function doGet(e) {
       .createTextOutput(JSON.stringify(errorResponse))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  Logger.log("doGet recibido. action=%s, params=%s", action, JSON.stringify(params));
-
 }
 
 function getInitialData() {
@@ -209,7 +207,6 @@ function doPost(e) {
       }))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  Logger.log("⚡ doGet DATA: " + JSON.stringify(data));
 }
 
 // ===================================
@@ -309,6 +306,9 @@ function createSheetIfNotExists(name, headers) {
 // ===================================
 
 function getCategories() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('categories');
+  if (cached) return JSON.parse(cached);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Categorías');
   const lastRow = sheet.getLastRow();
 
@@ -316,11 +316,13 @@ function getCategories() {
 
   const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
 
-  return data.map(row => ({
+  const result = data.map(row => ({
     id: row[0],
     name: row[1],
     createdAt: row[2]
   }));
+  cache.put('categories', JSON.stringify(result), 300);
+  return result;
 }
 
 function createCategory(data) {
@@ -329,6 +331,7 @@ function createCategory(data) {
 
   sheet.appendRow([id, data.name, new Date()]);
 
+  CacheService.getScriptCache().remove('categories');
   return { success: true, id: id };
 }
 
@@ -339,6 +342,7 @@ function updateCategory(data) {
   for (let i = 1; i < dataRange.length; i++) {
     if (dataRange[i][0] === data.id) {
       sheet.getRange(i + 1, 2).setValue(data.name);
+      CacheService.getScriptCache().remove('categories');
       return { success: true };
     }
   }
@@ -353,6 +357,7 @@ function deleteCategory(data) {
   for (let i = 1; i < dataRange.length; i++) {
     if (dataRange[i][0] === data.id) {
       sheet.deleteRow(i + 1);
+      CacheService.getScriptCache().remove('categories');
       return { success: true };
     }
   }
@@ -365,6 +370,9 @@ function deleteCategory(data) {
 // ===================================
 
 function getProducts() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('products');
+  if (cached) return JSON.parse(cached);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Productos');
   const lastRow = sheet.getLastRow();
 
@@ -372,7 +380,7 @@ function getProducts() {
 
   const data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
 
-  return data.map(row => ({
+  const result = data.map(row => ({
     id: row[0],
     name: row[1],
     category: row[2],
@@ -380,6 +388,8 @@ function getProducts() {
     description: row[4],
     createdAt: row[5]
   }));
+  cache.put('products', JSON.stringify(result), 300);
+  return result;
 }
 
 function createProduct(data) {
@@ -395,6 +405,7 @@ function createProduct(data) {
     new Date()
   ]);
 
+  CacheService.getScriptCache().remove('products');
   return { success: true, id: id };
 }
 
@@ -410,6 +421,7 @@ function updateProduct(data) {
         data.price,
         data.description || ''
       ]]);
+      CacheService.getScriptCache().remove('products');
       return { success: true };
     }
   }
@@ -424,6 +436,7 @@ function deleteProduct(data) {
   for (let i = 1; i < dataRange.length; i++) {
     if (dataRange[i][0] === data.id) {
       sheet.deleteRow(i + 1);
+      CacheService.getScriptCache().remove('products');
       return { success: true };
     }
   }
@@ -436,27 +449,54 @@ function deleteProduct(data) {
 // ===================================
 
 
+function findOrderByRequestId(sheet, requestId) {
+  if (!sheet || !requestId || sheet.getLastRow() <= 1) return null;
+  const match = sheet.getRange(2, 11, sheet.getLastRow() - 1, 1)
+    .createTextFinder(requestId).matchEntireCell(true).findNext();
+  return match ? sheet.getRange(match.getRow(), 1).getValue() : null;
+}
+
+function getNextOrderNumber(ss) {
+  const properties = PropertiesService.getScriptProperties();
+  let current = Number(properties.getProperty('ultimoNumeroOrden')) || 0;
+  if (!current) {
+    ['Órdenes', 'Órdenes_Archivo'].forEach(name => {
+      const sheet = ss.getSheetByName(name);
+      if (!sheet || sheet.getLastRow() <= 1) return;
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().forEach(row => {
+        current = Math.max(current, Number(row[0]) || 0);
+      });
+    });
+  }
+  current += 1;
+  properties.setProperty('ultimoNumeroOrden', String(current));
+  return current;
+}
+
 function createOrder(data) {
+  const requestId = String(data.requestId || '').trim();
+  const cache = CacheService.getScriptCache();
+  const cacheKey = requestId ? 'order_' + requestId : '';
+  const cachedOrder = cacheKey ? cache.get(cacheKey) : null;
+  if (cachedOrder) {
+    return { success: true, orderNumber: Number(cachedOrder), duplicate: true };
+  }
+
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    const ordersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Órdenes');
-    const detailsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Detalle_Órdenes');
-    const requestId = String(data.requestId || '').trim();
-    const lastRow = ordersSheet.getLastRow();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ordersSheet = ss.getSheetByName('Órdenes');
+    const detailsSheet = ss.getSheetByName('Detalle_Órdenes');
 
-    // Una misma solicitud nunca debe crear dos órdenes, aunque el navegador
-    // repita la petición por doble clic, recarga o demora de red.
-    if (requestId && lastRow > 1) {
-      const requestIds = ordersSheet.getRange(2, 11, lastRow - 1, 1).getDisplayValues();
-      for (let i = requestIds.length - 1; i >= 0; i--) {
-        if (requestIds[i][0] === requestId) {
-          return {
-            success: true,
-            orderNumber: ordersSheet.getRange(i + 2, 1).getValue(),
-            duplicate: true
-          };
-        }
+    // La caché acelera los reintentos, pero esta búsqueda persistente mantiene
+    // la protección incluso después de que la caché expire.
+    if (requestId) {
+      const existingOrder = findOrderByRequestId(ordersSheet, requestId) ||
+        findOrderByRequestId(ss.getSheetByName('Órdenes_Archivo'), requestId);
+      if (existingOrder) {
+        cache.put(cacheKey, String(existingOrder), 600);
+        return { success: true, orderNumber: existingOrder, duplicate: true };
       }
     }
 
@@ -464,35 +504,24 @@ function createOrder(data) {
       ordersSheet.getRange(1, 11).setValue('ID Solicitud');
     }
 
-    const orderNumber = lastRow;
-    ordersSheet.appendRow([
-      orderNumber,
-      new Date(),
-      data.customerName,
-      data.orderType,
-      data.address || '',
-      data.deliveryCharge || 0,
-      data.paymentMethod || 'Efectivo',
-      data.subtotal || data.total,
-      data.total,
-      'Completada',
-      requestId
-    ]);
+    const orderNumber = getNextOrderNumber(ss);
+    ordersSheet.getRange(ordersSheet.getLastRow() + 1, 1, 1, 11).setValues([[
+      orderNumber, new Date(), data.customerName, data.orderType,
+      data.address || '', data.deliveryCharge || 0,
+      data.paymentMethod || 'Efectivo', data.subtotal || data.total,
+      data.total, 'Completada', requestId
+    ]]);
 
     const detailRows = (data.items || []).map(item => [
-      orderNumber,
-      item.name,
-      item.quantity,
-      item.price,
-      item.price * item.quantity,
-      item.notes || ''
+      orderNumber, item.name, item.quantity, item.price,
+      item.price * item.quantity, item.notes || ''
     ]);
     if (detailRows.length > 0) {
-      detailsSheet
-        .getRange(detailsSheet.getLastRow() + 1, 1, detailRows.length, 6)
+      detailsSheet.getRange(detailsSheet.getLastRow() + 1, 1, detailRows.length, 6)
         .setValues(detailRows);
     }
 
+    if (cacheKey) cache.put(cacheKey, String(orderNumber), 600);
     return { success: true, orderNumber: orderNumber, duplicate: false };
   } finally {
     lock.releaseLock();
@@ -571,10 +600,19 @@ function getOrders(filters) {
     }
 
     const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return [];
-    // Solo se leen las nueve columnas usadas por órdenes; evita escanear
-    // columnas auxiliares o formatos vacíos de toda la hoja.
-    const allData = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+    const activeItems = lastRow > 1
+      ? sheet.getRange(2, 1, lastRow - 1, 9).getValues().map((row, index) => ({
+          data: row, originalRowIndex: index + 2, archived: false
+        }))
+      : [];
+    const archiveSheet = shouldReadOrderArchive(filters)
+      ? SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Órdenes_Archivo')
+      : null;
+    const archiveItems = archiveSheet && archiveSheet.getLastRow() > 1
+      ? archiveSheet.getRange(2, 1, archiveSheet.getLastRow() - 1, 9).getValues().map(row => ({
+          data: row, originalRowIndex: null, archived: true
+        }))
+      : [];
     const timeZone = Session.getScriptTimeZone();
 
     // Preparar filtros
@@ -585,17 +623,15 @@ function getOrders(filters) {
 
     Logger.log("Aplicando filtros -> Fecha Inicio: %s, Fecha Fin: %s, Pago: %s", dateStart, dateEnd, filterPayment);
 
-    const filteredOrders = allData.map((row, index) => {
-      // Guardamos el número de fila original (index + 2 porque quitamos encabezados y las filas empiezan en 1)
-      return { data: row, originalRowIndex: index + 2 };
-    }).filter(item => {
+    const filteredOrders = activeItems.concat(archiveItems).filter(item => {
       const row = item.data;
       const orderDate = new Date(row[1]); // Columna B: Fecha
       const paymentMethod = (row[6] || "").toString(); // Columna G: Pago
+      item.operationalDate = getOperationalDate(row, timeZone);
 
       let dateMatch = true;
       if (operationalDate) {
-        dateMatch = getOperationalDate(row, timeZone) === operationalDate;
+        dateMatch = item.operationalDate === operationalDate;
       } else if (dateStart && dateEnd) {
         dateMatch = orderDate >= dateStart && orderDate <= dateEnd;
       }
@@ -611,6 +647,7 @@ function getOrders(filters) {
     // Mapear los datos filtrados al formato que espera el frontend
     return filteredOrders.map(item => ({
       rowIndex: item.originalRowIndex, // ¡Importante para poder eliminar!
+      archived: item.archived,
       orderNumber: item.data[0],
       rawDate: item.data[1],
       customer: item.data[2],
@@ -619,11 +656,87 @@ function getOrders(filters) {
       paymentMethod: item.data[6],
       // La venta corresponde únicamente a los productos; el domicilio va aparte.
       total: Number(item.data[7]) || Number(item.data[8]) || 0,
-      operationalDate: getOperationalDate(item.data, timeZone),
+      operationalDate: item.operationalDate,
     }));
   } catch (err) {
     Logger.log("Error en getOrders: %s", err.toString());
     return [];
+  }
+}
+
+const ORDER_ARCHIVE_DAYS = 90;
+
+function shouldReadOrderArchive(filters) {
+  filters = filters || {};
+  const requested = String(filters.operationalDate || filters.dateStart || '').slice(0, 10);
+  if (!requested) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - ORDER_ARCHIVE_DAYS);
+  const cutoffText = Utilities.formatDate(cutoff, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return requested < cutoffText;
+}
+
+function ensureOrderArchiveSheets(ss) {
+  const pairs = [
+    ['Órdenes', 'Órdenes_Archivo'],
+    ['Detalle_Órdenes', 'Detalle_Órdenes_Archivo']
+  ];
+  pairs.forEach(pair => {
+    const source = ss.getSheetByName(pair[0]);
+    let archive = ss.getSheetByName(pair[1]);
+    if (!archive) archive = ss.insertSheet(pair[1]);
+    if (archive.getLastRow() === 0 && source && source.getLastColumn() > 0) {
+      const width = source.getLastColumn();
+      archive.getRange(1, 1, 1, width).setValues(source.getRange(1, 1, 1, width).getValues());
+    }
+  });
+}
+
+function archiveOldOrders() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ensureOrderArchiveSheets(ss);
+    const orders = ss.getSheetByName('Órdenes');
+    const details = ss.getSheetByName('Detalle_Órdenes');
+    const ordersArchive = ss.getSheetByName('Órdenes_Archivo');
+    const detailsArchive = ss.getSheetByName('Detalle_Órdenes_Archivo');
+    if (!orders || orders.getLastRow() <= 1) return { success: true, archived: 0 };
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - ORDER_ARCHIVE_DAYS);
+    const width = Math.max(11, orders.getLastColumn());
+    const rows = orders.getRange(2, 1, orders.getLastRow() - 1, width).getValues();
+    const selectedIndexes = [];
+    const selectedRows = [];
+    const selectedIds = {};
+    rows.forEach((row, index) => {
+      if (row[1] && new Date(row[1]) < cutoff) {
+        selectedIndexes.push(index + 2);
+        selectedRows.push(row);
+        selectedIds[String(row[0])] = true;
+      }
+    });
+    if (!selectedRows.length) return { success: true, archived: 0 };
+
+    ordersArchive.getRange(ordersArchive.getLastRow() + 1, 1, selectedRows.length, width)
+      .setValues(selectedRows);
+    const detailRows = details && details.getLastRow() > 1
+      ? details.getRange(2, 1, details.getLastRow() - 1, 6).getValues()
+      : [];
+    const archivedDetails = detailRows.filter(row => selectedIds[String(row[0])]);
+    if (archivedDetails.length) {
+      detailsArchive.getRange(detailsArchive.getLastRow() + 1, 1, archivedDetails.length, 6)
+        .setValues(archivedDetails);
+    }
+    for (let i = detailRows.length - 1; i >= 0; i--) {
+      if (selectedIds[String(detailRows[i][0])]) details.deleteRow(i + 2);
+    }
+    for (let i = selectedIndexes.length - 1; i >= 0; i--) orders.deleteRow(selectedIndexes[i]);
+    return { success: true, archived: selectedRows.length };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -731,17 +844,28 @@ function getDashboardData(filters) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ordersSheet = ss.getSheetByName('Órdenes');
   const detailsSheet = ss.getSheetByName('Detalle_Órdenes');
-  const orders = ordersSheet && ordersSheet.getLastRow() > 1
+  let orders = ordersSheet && ordersSheet.getLastRow() > 1
     ? ordersSheet.getRange(2, 1, ordersSheet.getLastRow() - 1, 10).getValues()
     : [];
-  const details = detailsSheet && detailsSheet.getLastRow() > 1
+  let details = detailsSheet && detailsSheet.getLastRow() > 1
     ? detailsSheet.getRange(2, 1, detailsSheet.getLastRow() - 1, 6).getValues()
     : [];
+  if (shouldReadOrderArchive(filters)) {
+    const ordersArchive = ss.getSheetByName('Órdenes_Archivo');
+    const detailsArchive = ss.getSheetByName('Detalle_Órdenes_Archivo');
+    if (ordersArchive && ordersArchive.getLastRow() > 1) {
+      orders = orders.concat(ordersArchive.getRange(2, 1, ordersArchive.getLastRow() - 1, 10).getValues());
+    }
+    if (detailsArchive && detailsArchive.getLastRow() > 1) {
+      details = details.concat(detailsArchive.getRange(2, 1, detailsArchive.getLastRow() - 1, 6).getValues());
+    }
+  }
 
   const start = filters.dateStart || null;
   const end = filters.dateEnd || null;
+  const timeZone = Session.getScriptTimeZone();
   const filtered = orders.filter(row => {
-    const operationalDate = getOperationalDate(row);
+    const operationalDate = getOperationalDate(row, timeZone);
     return (!start || operationalDate >= start) && (!end || operationalDate <= end);
   });
   const orderIds = {};
@@ -759,7 +883,7 @@ function getDashboardData(filters) {
     payments[payment] = (payments[payment] || 0) + total;
     const type = String(row[3] || 'local').toLowerCase();
     types[type] = (types[type] || 0) + 1;
-    const key = getOperationalDate(row);
+    const key = getOperationalDate(row, timeZone);
     daily[key] = (daily[key] || 0) + total;
   });
 

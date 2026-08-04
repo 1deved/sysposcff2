@@ -231,7 +231,7 @@ function fetchDataOnce(action, data = {}, showErrors = true, timeoutOverride = n
       const timeoutMs = timeoutOverride || (action === "createOrder"
         ? 90000
         : RETRYABLE_READ_ACTIONS.has(action)
-          ? 15000
+          ? 10000
           : 45000);
       const cleanup = () => {
         if (script.parentNode) script.parentNode.removeChild(script);
@@ -291,11 +291,11 @@ async function fetchData(action, data = {}) {
     // Apps Script puede guardar la orden aunque su respuesta tarde demasiado.
     // Repetir con el mismo requestId es seguro: el servidor devuelve la orden
     // existente en vez de insertarla nuevamente.
-    const firstResult = await fetchDataOnce(action, data, false, 45000);
+    const firstResult = await fetchDataOnce(action, data, false, 15000);
     if (firstResult && firstResult.success) return firstResult;
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    return fetchDataOnce(action, data, true, 90000);
+    return fetchDataOnce(action, data, true, 20000);
   }
 
   const canRetry = RETRYABLE_READ_ACTIONS.has(action);
@@ -1483,11 +1483,9 @@ function renderOrdersTable(orders) {
             )}</td>
             <td>
                 <div class="action-btns">
-                    <button class="btn-delete" onclick="deleteOrderAdmin(${
-                      order.orderNumber
-                    }, ${order.rowIndex})">
-                        Eliminar
-                    </button>
+                    ${order.archived
+                      ? '<span style="color: var(--gray-medium);">Archivada</span>'
+                      : `<button class="btn-delete" onclick="deleteOrderAdmin(${order.orderNumber}, ${order.rowIndex})">Eliminar</button>`}
                 </div>
             </td>
         </tr>
