@@ -232,7 +232,6 @@
           <div id="adminContent" style="display: none">
             <div class="admin-layout">
               <div class="admin-tabs">
-                <button class="tab-btn" data-tab="dashboard">Dashboard</button>
                 <button class="tab-btn active" data-tab="productos">
                   Productos
                 </button>
@@ -247,30 +246,6 @@
                 >
                   Cerrar Sesión
                 </button>
-              </div>
-
-              <div class="tab-content" id="tabDashboard">
-                <div class="dashboard-heading">
-                  <div><h2>Resumen de ventas</h2><p id="dashboardPeriodLabel">Datos de hoy</p></div>
-                  <div class="dashboard-filters">
-                    <input type="date" id="dashboardStartDate" class="input-field" />
-                    <input type="date" id="dashboardEndDate" class="input-field" />
-                    <button class="btn-primary" id="btnDashboardFilter">Actualizar</button>
-                    <button class="btn-secondary" id="btnDashboardToday">Hoy</button>
-                    <button class="btn-secondary" id="btnDashboardMonth">Este mes</button>
-                  </div>
-                </div>
-                <div class="dashboard-kpis">
-                  <article class="dashboard-card"><span>Ventas</span><strong id="dashboardSales">$0</strong><small>Sin propinas</small></article>
-                  <article class="dashboard-card"><span>Órdenes</span><strong id="dashboardOrders">0</strong><small>En el período</small></article>
-                  <article class="dashboard-card"><span>Ticket promedio</span><strong id="dashboardAverage">$0</strong><small>Por orden</small></article>
-                  <article class="dashboard-card"><span>Unidades vendidas</span><strong id="dashboardUnits">0</strong><small>Productos</small></article>
-                </div>
-                <div class="dashboard-grid">
-                  <section class="dashboard-panel"><h3>Ventas por día</h3><div id="dashboardDaily" class="dashboard-bars"></div></section>
-                  <section class="dashboard-panel"><h3>Formas de pago</h3><div id="dashboardPayments" class="dashboard-breakdown"></div><div id="dashboardTypes" class="dashboard-types"></div></section>
-                </div>
-                <section class="dashboard-panel"><div class="dashboard-panel-title"><h3>Productos más vendidos</h3><span>Unidades e ingresos</span></div><div class="admin-table-container"><table class="admin-table"><thead><tr><th>#</th><th>Producto</th><th>Unidades</th><th>Ingresos</th></tr></thead><tbody id="dashboardProducts"></tbody></table></div></section>
               </div>
 
               <!-- Tab de Productos -->
