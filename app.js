@@ -26,16 +26,17 @@ let state = {
 // INICIALIZACIÓN
 // ===================================
 
-document.addEventListener("DOMContentLoaded", () => {
-  setupEventListeners();
-});
-
 async function initializeApp() {
-  showLoader(true);
+  showLoader(true, "Cargando menú...");
   try {
     await loadInitialData();
     renderProducts();
     renderCategoryFilters();
+  } catch (error) {
+    console.error("No se pudo iniciar el menú:", error);
+    document.getElementById("productsGrid").innerHTML =
+      '<div class="empty-cart"><p>No se pudo cargar el menú.</p><button type="button" class="btn-primary" onclick="initializeApp()">Reintentar</button></div>';
+    showToast("No se pudo cargar el menú. Pulse Reintentar.", "error");
   } finally {
     showLoader(false);
   }
@@ -911,10 +912,26 @@ function applyInitialData(data) {
   state.predefinedNotes = data.predefinedNotes || [];
 }
 
+function isValidInitialData(data) {
+  return Boolean(
+    data &&
+    Array.isArray(data.categories) &&
+    data.categories.every((category) =>
+      category && typeof category.id === "string" && typeof category.name === "string"
+    ) &&
+    Array.isArray(data.products) &&
+    data.products.every((product) =>
+      product && typeof product.id === "string" && typeof product.name === "string" &&
+      typeof product.category === "string" && Number.isFinite(product.price)
+    ) &&
+    (data.predefinedNotes === undefined || Array.isArray(data.predefinedNotes))
+  );
+}
+
 function readInitialDataCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(INITIAL_DATA_CACHE_KEY) || "null");
-    return cached && cached.data && Array.isArray(cached.data.products)
+    return cached && isValidInitialData(cached.data)
       ? cached.data
       : null;
   } catch (error) {
@@ -934,8 +951,17 @@ function saveInitialDataCache(data) {
 }
 
 async function refreshInitialData(renderAfterRefresh) {
+  try {
+    return await refreshInitialDataOnce(renderAfterRefresh);
+  } catch (error) {
+    console.warn("No se pudo actualizar el catálogo:", error);
+    return false;
+  }
+}
+
+async function refreshInitialDataOnce(renderAfterRefresh) {
   const result = await fetchData("getInitialData", {}, !renderAfterRefresh);
-  if (result && result.success && result.data) {
+  if (result && result.success && isValidInitialData(result.data)) {
     applyInitialData(result.data);
     saveInitialDataCache(result.data);
     if (renderAfterRefresh) {
@@ -957,11 +983,14 @@ async function refreshInitialData(renderAfterRefresh) {
       fetchData("getProducts"),
       fetchData("getPredefinedNotes"),
     ]);
+    // Una lectura parcial no debe borrar el catálogo que ya está funcionando.
+    if (!categories || !categories.success || !products || !products.success) return false;
     const fallbackData = {
-      categories: categories.success ? categories.data || [] : [],
-      products: products.success ? products.data || [] : [],
-      predefinedNotes: notes.success ? notes.data || [] : [],
+      categories: categories.data,
+      products: products.data,
+      predefinedNotes: notes && notes.success ? notes.data || [] : [],
     };
+    if (!isValidInitialData(fallbackData)) return false;
     applyInitialData(fallbackData);
     saveInitialDataCache(fallbackData);
     if (renderAfterRefresh) {
@@ -986,10 +1015,13 @@ async function loadInitialData(forceRefresh = false) {
     refreshInitialData(true);
     return;
   }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch("catalog.json");
+    const response = await fetch("catalog.json", { signal: controller.signal });
     if (response.ok) {
       const bundled = await response.json();
+      if (!isValidInitialData(bundled)) throw new Error("Catálogo local inválido");
       applyInitialData(bundled);
       saveInitialDataCache(bundled);
       refreshInitialData(true);
@@ -997,8 +1029,12 @@ async function loadInitialData(forceRefresh = false) {
     }
   } catch (error) {
     console.warn("No se pudo cargar el catálogo local:", error);
+  } finally {
+    clearTimeout(timeout);
   }
-  await refreshInitialData(false);
+  if (!(await refreshInitialData(false))) {
+    throw new Error("No hay un catálogo válido disponible");
+  }
 }
 
 function currentOperationalDate() {
@@ -1628,7 +1664,10 @@ async function deleteAllOrders() {
 
 // Inicializar al cargar
 document.addEventListener("DOMContentLoaded", async () => {
-  await initializeApp();
+  setupEventListeners();
+  checkSession();
+  // La navegación y los formularios no deben depender de una respuesta de red.
+  switchView("orden");
 
   // Evento para tipo de orden
   document.querySelectorAll('input[name="orderType"]').forEach((radio) => {
@@ -1645,12 +1684,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   ).value;
   setDefaultTipForOrderType(initialOrderType);
 
-  // Vista por defecto
-  switchView("orden");
-
   // Listeners para el login
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("btnLogout").addEventListener("click", logout);
+  await initializeApp();
 });
 
 // ===================================
@@ -1726,26 +1763,20 @@ function logout() {
 
 // Verificar sesión al cargar la página
 function checkSession() {
-  const session = localStorage.getItem("adminSession");
-  
-  if (session) {
-    try {
-      const sessionData = JSON.parse(session);
-      const hoursPassed = (Date.now() - sessionData.timestamp) / (1000 * 60 * 60);
-      
-      // Sesión válida por 8 horas
-      if (hoursPassed < 8) {
-        state.isAdminLoggedIn = true;
-        state.currentUser = sessionData.username;
-      } else {
-        // Sesión expirada
-        localStorage.removeItem("adminSession");
-      }
-    } catch (error) {
+  try {
+    const session = localStorage.getItem("adminSession");
+    if (!session) return;
+    const sessionData = JSON.parse(session);
+    const hoursPassed = (Date.now() - sessionData.timestamp) / (1000 * 60 * 60);
+
+    // Sesión válida por 8 horas; su recuperación nunca debe impedir abrir el menú.
+    if (hoursPassed >= 0 && hoursPassed < 8) {
+      state.isAdminLoggedIn = true;
+      state.currentUser = sessionData.username;
+    } else {
       localStorage.removeItem("adminSession");
     }
+  } catch (error) {
+    console.warn("No se pudo recuperar la sesión local:", error);
   }
 }
-
-// Ejecutar verificación de sesión al cargar
-checkSession();
