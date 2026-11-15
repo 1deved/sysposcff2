@@ -1752,11 +1752,8 @@ function logout() {
   document.getElementById("loginScreen").style.display = "block";
   document.getElementById("adminContent").style.display = "none";
   
-  // Volver a vista de orden
-  document.getElementById("vistaAdmin").classList.add("hidden");
-  document.getElementById("vistaOrden").classList.remove("hidden");
-  document.getElementById("btnOrden").classList.add("active");
-  document.getElementById("btnAdmin").classList.remove("active");
+  // Restaurar también la clase activa y el estado de navegación.
+  switchView("orden");
   
   showToast("Sesión cerrada", "success");
 }
